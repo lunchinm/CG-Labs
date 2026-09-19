@@ -1,0 +1,10 @@
+# IDE
+.trae/
+.vscode/
+
+# 大文件
+*.mp4
+*.zip
+
+# 空占位文件
+*.py

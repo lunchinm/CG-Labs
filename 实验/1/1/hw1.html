@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" >
+<title>交互式图形程序：形状切换 / 缓动平移 / 旋转控制 / 多笔画手绘</title>
+    <style>
+        /* ------------------------------------------------------------------
+         * 画布：固定铺满整个窗口，作为 WebGL 的绘制表面
+         * ------------------------------------------------------------------ */
+        canvas{
+            margin: 0in;
+            top:0in;
+            left:0in;
+            position:fixed;
+            width:100%;
+            height:100%;
+        }
+
+        /* ------------------------------------------------------------------
+         * 顶部工具栏：悬浮在画布之上（z-index 高于 canvas）
+         * 分为三个纵向排列的部分，每部分内按钮横向排列。
+         * 说明：本页所有图标均为手写内联 SVG（空心矢量轮廓），
+         *       不使用任何 emoji、表情包、外部图标库或网络图片。
+         * ------------------------------------------------------------------ */
+        #toolbar{
+            position: fixed;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;   /* 三个部分纵向排列 */
+            gap: 6px;                 /* 部分之间的间距 */
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.92);
+            border: 1px solid #c9ced6;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            font-family: "Microsoft YaHei", "SimHei", sans-serif;
+            user-select: none;
+        }
+
+        /* 每个部分：内部按钮横向排列 */
+        .toolbar-section{
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 部分标签 */
+        .section-label{
+            font-size: 12px;
+            color: #888;
+            white-space: nowrap;
+            min-width: 96px;         /* 统一宽度，使按钮对齐 */
+        }
+
+        /* 工具栏通用按钮样式 */
+        #toolbar button{
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            font-size: 13px;
+            white-space: nowrap;
+            color: #333;
+            background: #f7f8fa;
+            border: 1px solid #b9c0ca;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        #toolbar button:hover{ background: #e9edf3; }
+        /* 激活态：手绘模式 / 调整旋转中心 时按钮高亮 */
+        #toolbar button.active{
+            background: #2f6fdb;
+            border-color: #2456ad;
+            color: #fff;
+        }
+
+        /* 按钮内的内联 SVG 图标尺寸（空心矢量轮廓） */
+        #toolbar svg{
+            width: 18px;
+            height: 18px;
+            display: block;
+        }
+
+        /* "清空"和"调整旋转中心"按钮仅在手绘模式显示 */
+        #btnClear, #btnPivot{ display: none; }
+        #btnClear.show, #btnPivot.show{ display: flex; }
+
+        /* ------------------------------------------------------------------
+         * 旋转速度滑动条：加长、变窄（约原宽度 30%）
+         * 中点(0)=停止，左滑=逆时针，右滑=顺时针
+         * ------------------------------------------------------------------ */
+        #rotSpeed{
+            -webkit-appearance: none;
+            appearance: none;
+            width: 200px;
+            height: 2px;                /* 轨道细至约 30% */
+            background: #d0d5dd;
+            border-radius: 1px;
+            outline: none;
+            cursor: pointer;
+        }
+        /* 滑块拇指（WebKit 内核）：缩小至约 30% */
+        #rotSpeed::-webkit-slider-thumb{
+            -webkit-appearance: none;
+            appearance: none;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #2f6fdb;
+            cursor: pointer;
+        }
+        /* 滑块拇指（Firefox 内核） */
+        #rotSpeed::-moz-range-thumb{
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #2f6fdb;
+            cursor: pointer;
+            border: none;
+        }
+        #speedLabel{
+            font-size: 12px;
+            color: #333;
+            min-width: 90px;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        /* ------------------------------------------------------------------
+         * 旋转中心标记：一个小圆点 + 提示文字，悬浮在画布上
+         * 由 JS 每帧更新位置（手绘模式时显示）
+         * ------------------------------------------------------------------ */
+        #pivotMarker{
+            position: fixed;
+            width: 2px;
+            height: 2px;
+            border-radius: 50%;
+            background: #ffeb3b;
+            border: 1px solid #333;
+            transform: translate(-50%, -50%);
+            z-index: 9;
+            pointer-events: none;
+            display: none;
+        }
+        #pivotHint{
+            position: fixed;
+            font-size: 11px;
+            color: #333;
+            background: rgba(255,235,59,0.92);
+            padding: 1px 5px;
+            border-radius: 3px;
+            z-index: 9;
+            pointer-events: none;
+            display: none;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ==================================================================
+         顶部工具栏（三部分纵向排列）
+         ================================================================== -->
+    <div id="toolbar">
+        <!-- 第一部分：预设形状 -->
+        <div class="toolbar-section">
+            <span class="section-label">预设形状</span>
+            <button id="btnRect" title="矩形">
+                <svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+                <span>矩形</span>
+            </button>
+            <button id="btnTri" title="三角形">
+                <svg viewBox="0 0 24 24"><polygon points="12,4 20,19 4,19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+                <span>三角形</span>
+            </button>
+            <button id="btnCircle" title="圆形">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+                <span>圆形</span>
+            </button>
+            <button id="btnStar" title="五角星">
+                <svg viewBox="0 0 24 24"><polygon points="12,3 14.12,9.09 20.56,9.22 15.42,13.11 17.29,19.28 12,15.6 6.71,19.28 8.58,13.11 3.44,9.22 9.88,9.09" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                <span>五角星</span>
+            </button>
+        </div>
+
+        <!-- 第二部分：手绘形状 -->
+        <div class="toolbar-section">
+            <span class="section-label">手绘形状</span>
+            <button id="btnDraw" title="手绘形状">
+                <span>手绘形状</span>
+            </button>
+            <button id="btnClear" title="清空当前所有笔画">
+                <span>清空</span>
+            </button>
+            <button id="btnPivot" title="手动调整旋转中心位置">
+                <span>调整旋转中心</span>
+            </button>
+        </div>
+
+        <!-- 第三部分：旋转速度与方向 -->
+        <div class="toolbar-section">
+            <span class="section-label">旋转速度与方向</span>
+            <input type="range" id="rotSpeed" min="-360" max="360" step="10" value="0" title="旋转速度（左=逆时针，右=顺时针，中=停止）">
+            <span id="speedLabel">停止</span>
+        </div>
+    </div>
+
+    <!-- 旋转中心标记：黄色圆点 + 提示文字，由 JS 每帧定位 -->
+    <div id="pivotMarker"></div>
+    <div id="pivotHint">旋转中心</div>
+
+    <!-- WebGL 支持库与主程序（路径与作业框架保持一致） -->
+    <script type="text/javascript" src="./Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="./Common/initShaders2.js"></script>
+    <script type="text/javascript" src="./Common/MVnew.js"></script>
+    <script type="text/javascript" src="hw1.js"></script>
+    <canvas id="gl-canvas">
+        Oops ... your browser doesn't support the HTML5 canvas element
+    </canvas>
+
+</body>
+</html>
