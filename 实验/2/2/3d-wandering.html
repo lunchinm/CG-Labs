@@ -1,52 +1,520 @@
 <!DOCTYPE html>
-<html style="background-color: rgba(188,190,192,1.0);">
+<html>
 <head>
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
-    <title>计算机图形学:网格建模与3D坐标变换</title>
+    <title>计算机图形学：3D 场景建模与漫游</title>
     <style type="text/css">
-        html{
+        /* ==================================================================
+         * 全局：应用式布局（顶栏 46px + 主体 flex:1 + 状态栏 28px），
+         * 配色语言完全沿用实验一 hw1.html（浅色 + 强调色 #2f6fdb）。
+         * 说明：本页所有图标均为手写内联 SVG（空心矢量轮廓），
+         *       不使用 emoji、表情包、外部图标库或网络图片。
+         * ================================================================== */
+        html, body{
+            margin: 0;
+            padding: 0;
             width: 100%;
             height: 100%;
+            overflow: hidden;                  /* 应用式布局，禁止页面滚动条 */
+            font-family: "Microsoft YaHei", "SimHei", sans-serif;
+            color: #333;
         }
-        body{
-            margin: 0px;
-            /*width: calc(100% - 10px);
-            height: calc(100% - 40px);*/
+        #app{
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* ------------------------------------------------------------------
+         * 顶部工具栏
+         * ------------------------------------------------------------------ */
+        #toolbar{
+            flex: 0 0 46px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 0 14px;
+            background: #fff;
+            border-bottom: 1px solid #d6dbe3;
+            user-select: none;
+        }
+        .app-title{
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #2f6fdb;
+            white-space: nowrap;
+        }
+        .app-title svg{ width: 18px; height: 18px; display: block; }
+
+        .toolbar-group{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .group-label{
+            font-size: 12px;
+            color: #888;
+            white-space: nowrap;
+        }
+        .toolbar-right{
+            margin-left: auto;                 /* 右侧按钮组靠右 */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 分段按钮（模型 / 视图预设） */
+        .seg{
+            display: flex;
+            border: 1px solid #b9c0ca;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .seg button{
+            padding: 5px 10px;
+            font-size: 12px;
+            font-family: inherit;
+            white-space: nowrap;
+            color: #333;
+            background: #f7f8fa;
+            border: none;
+            border-right: 1px solid #b9c0ca;
+            cursor: pointer;
+        }
+        .seg button:last-child{ border-right: none; }
+        .seg button:hover{ background: #e9edf3; }
+        .seg button.active{
+            background: #2f6fdb;
+            color: #fff;
+        }
+
+        /* 工具栏独立按钮 */
+        .btn{
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-family: inherit;
+            white-space: nowrap;
+            color: #333;
+            background: #f7f8fa;
+            border: 1px solid #b9c0ca;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn:hover{ background: #e9edf3; }
+        .btn svg{ width: 15px; height: 15px; display: block; }
+        .btn-primary{
+            background: #2f6fdb;
+            border-color: #2456ad;
+            color: #fff;
+        }
+        .btn-primary:hover{ background: #2456ad; }
+
+        /* ------------------------------------------------------------------
+         * 主体：视口 + 右侧设置面板
+         * ------------------------------------------------------------------ */
+        #main{
+            flex: 1 1 auto;
+            display: flex;
+            min-height: 0;
+        }
+
+        #viewport-container{
+            position: relative;
+            flex: 1 1 auto;
+            min-width: 0;
+            background: #eef1f5;
+            overflow: hidden;
+        }
+        #canvas{
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            height: 100%;   
-            overflow: hidden; /* 防止滚动条出现 */   
+            height: 100%;
+            display: block;
+        }
+
+        /* 轴标签：HTML 覆盖层（矢量清晰），由 JS 每帧投影定位 */
+        .axis-label{
+            position: absolute;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+        }
+        #axisLabelX{ color: #e13b3b; }
+        #axisLabelY{ color: #3ab54a; }
+        #axisLabelZ{ color: #3a6ee1; }
+
+        /* 角落朝向 gizmo 的取景框（与 WebGL 里 scissor 小视口同位置同尺寸）。
+         * 注意：本元素在 DOM 中位于 canvas 之后，会覆盖在小视口之上，
+         * 因此背景必须保持透明，否则会把 WebGL 绘制的 gizmo 蒙上一层白雾。 */
+        #gizFrame{
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 96px;
+            height: 96px;
+            box-sizing: border-box;
+            border: 1px solid #d6dbe3;
+            border-radius: 8px;
+            background: transparent;
+            pointer-events: none;
+        }
+
+        #viewport-hint{
+            position: absolute;
+            left: 12px;
+            bottom: 10px;
+            padding: 3px 8px;
+            font-size: 12px;
+            color: #888;
+            background: rgba(255,255,255,0.82);
+            border-radius: 6px;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        /* ------------------------------------------------------------------
+         * 右侧设置面板
+         * ------------------------------------------------------------------ */
+        #side-panel{
+            flex: 0 0 300px;
+            background: #fff;
+            border-left: 1px solid #d6dbe3;
+            overflow-y: auto;
+        }
+        .panel{ border-bottom: 1px solid #eef1f5; }
+        .panel-header{
+            padding: 7px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #2f6fdb;
+            background: #eef1f5;
+        }
+        .panel-content{
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 10px 12px 12px;
+        }
+
+        .setting-row{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #333;
+        }
+        .setting-row > .setting-label{
+            flex: 0 0 62px;
+            color: #888;
+            white-space: nowrap;
+        }
+        .setting-row > .setting-value{
+            flex: 0 0 46px;
+            margin-left: auto;
+            text-align: right;
+            color: #888;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 滑块：细轨道 + 小圆头（与实验一风格一致） */
+        #side-panel input[type=range]{
+            -webkit-appearance: none;
+            appearance: none;
+            flex: 1 1 auto;
+            min-width: 0;
+            height: 2px;
+            background: #d0d5dd;
+            border-radius: 1px;
+            outline: none;
+            cursor: pointer;
+        }
+        #side-panel input[type=range]::-webkit-slider-thumb{
+            -webkit-appearance: none;
+            appearance: none;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #2f6fdb;
+            cursor: pointer;
+        }
+        #side-panel input[type=range]::-moz-range-thumb{
+            width: 7px;
+            height: 7px;
+            border: none;
+            border-radius: 50%;
+            background: #2f6fdb;
+            cursor: pointer;
+        }
+
+        /* 数字输入框 */
+        #side-panel input[type=number]{
+            width: 52px;
+            padding: 3px 5px;
+            font-size: 12px;
+            font-family: inherit;
+            color: #333;
+            background: #f7f8fa;
+            border: 1px solid #b9c0ca;
+            border-radius: 4px;
+        }
+
+        /* 复选行 */
+        .check-row{
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 12px;
+            color: #333;
+            cursor: pointer;
+        }
+
+        /* 模型单选项 */
+        .radio-row{
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 12px;
+            color: #333;
+            cursor: pointer;
+        }
+
+        /* 快捷键表 */
+        .shortcut-row{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #333;
+        }
+        .shortcut-row > .shortcut-desc{
+            color: #666;
+        }
+        .kbd{
+            display: inline-block;
+            min-width: 14px;
+            padding: 1px 5px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 11px;
+            text-align: center;
+            color: #333;
+            background: #f7f8fa;
+            border: 1px solid #b9c0ca;
+            border-bottom-width: 2px;
+            border-radius: 4px;
+        }
+
+        /* ------------------------------------------------------------------
+         * 底部状态栏
+         * ------------------------------------------------------------------ */
+        #status-bar{
+            flex: 0 0 28px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 0 14px;
+            font-size: 12px;
+            color: #888;
+            background: #fff;
+            border-top: 1px solid #d6dbe3;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        #status-bar b{
+            font-weight: 600;
+            color: #333;
+            font-variant-numeric: tabular-nums;
         }
     </style>
-    
+
     <script type="text/javascript" src="./Common/webgl-utils.js"></script>
     <script type="text/javascript" src="./Common/initShaders2.js"></script>
     <script type="text/javascript" src="./Common/MVnew.js"></script>
     <script type="text/javascript" src="./models-data.js"></script>
     <script type="text/javascript" src="./3d-wandering.js"></script>
-        
 </head>
+
 <body>
-    <div style="display:flex; justify-content:space-between; line-height:20px; color:black; font-size:1vw;">    
-        <div>
-            <text>模型：</text>
-            <select onchange="modelChange(this.value)">
-                <option value="cube">方块</option>
-                <option value="sphere">球</option>
-                <option value="hat">墨西哥帽</option>
-            </select>
+<div id="app">
+
+    <!-- ==================================================================
+         顶部工具栏：模型选择 / 视图预设 / 投影切换 / 复位
+         ================================================================== -->
+    <header id="toolbar">
+        <div class="app-title">
+            <svg viewBox="0 0 24 24"><path d="M12 3 L20 7.5 L20 16.5 L12 21 L4 16.5 L4 7.5 Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 7.5 L12 12 L20 7.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M12 12 L12 21" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+            <span>3D 场景建模与漫游</span>
         </div>
-		<text>Z/C-物体整体放大/缩小</text>
-        <text>W/S-相机绕X轴旋转</text>
-		<text>A/D-相机绕Y轴旋转</text>
-        <text>P-切换投影方式</text>
-        <text>M/N-透视投影时调整俯仰角</text>
-        <text>方向键-平移物体</text>
-        <text>鼠标拖动-旋转物体(虚拟跟踪球)</text>
-        <text>空格-重置复位</text>
+
+        <div class="toolbar-group">
+            <span class="group-label">模型</span>
+            <div class="seg" id="segModel">
+                <button type="button" data-model="cube">方块</button>
+                <button type="button" data-model="sphere">球</button>
+                <button type="button" data-model="hat" class="active">墨西哥帽</button>
+            </div>
+        </div>
+
+        <div class="toolbar-group">
+            <span class="group-label">视图</span>
+            <div class="seg" id="segView">
+                <button type="button" data-view="front">前</button>
+                <button type="button" data-view="back">后</button>
+                <button type="button" data-view="left">左</button>
+                <button type="button" data-view="right">右</button>
+                <button type="button" data-view="top">上</button>
+                <button type="button" data-view="bottom">下</button>
+                <button type="button" data-view="iso" class="active">等轴</button>
+            </div>
+        </div>
+
+        <div class="toolbar-right">
+            <button type="button" id="btnProj" class="btn btn-primary">
+                <svg viewBox="0 0 24 24"><rect x="3" y="8" width="12" height="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 8 V3 H21 V13 H14" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                <span id="btnProjLabel">投影：正交</span>
+            </button>
+            <button type="button" id="btnReset" class="btn">
+                <svg viewBox="0 0 24 24"><path d="M4 12 A8 8 0 1 1 8 19" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 6 L4 12 L10 12" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+                <span>复位</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ==================================================================
+         主体：WebGL 视口 + 右侧设置面板
+         ================================================================== -->
+    <div id="main">
+        <div id="viewport-container">
+            <canvas id="canvas">Oops ... your browser doesn't support the HTML5 canvas element</canvas>
+
+            <!-- 轴标签：位置由 JS 每帧按 P·V 投影写入 -->
+            <div class="axis-label" id="axisLabelX">X</div>
+            <div class="axis-label" id="axisLabelY">Y</div>
+            <div class="axis-label" id="axisLabelZ">Z</div>
+
+            <!-- 角落朝向 gizmo 取景框（与 WebGL scissor 小视口对齐） -->
+            <div id="gizFrame"></div>
+
+            <div id="viewport-hint">左键拖动＝旋转物体 ｜ 右键拖动＝旋转相机 ｜ 滚轮＝缩放相机 ｜ 方向键＝平移物体</div>
+        </div>
+
+        <aside id="side-panel">
+            <!-- 模型 -->
+            <section class="panel">
+                <div class="panel-header">模型</div>
+                <div class="panel-content">
+                    <label class="radio-row"><input type="radio" name="model" value="cube">方块</label>
+                    <label class="radio-row"><input type="radio" name="model" value="sphere">球</label>
+                    <label class="radio-row"><input type="radio" name="model" value="hat" checked>墨西哥帽</label>
+                </div>
+            </section>
+
+            <!-- 相机 -->
+            <section class="panel">
+                <div class="panel-header">相机</div>
+                <div class="panel-content">
+                    <div class="setting-row">
+                        <span class="setting-label">方位角 θ</span>
+                        <input type="range" id="rngTheta" min="-180" max="180" step="1" value="45">
+                        <span class="setting-value" id="valTheta">45°</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">仰角 φ</span>
+                        <input type="range" id="rngPhi" min="0" max="180" step="0.1" value="54.7">
+                        <span class="setting-value" id="valPhi">54.7°</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">视野角 fov</span>
+                        <input type="range" id="rngFov" min="5" max="170" step="1" value="60">
+                        <span class="setting-value" id="valFov">60°</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">相机距离</span>
+                        <input type="range" id="rngRadius" min="1.5" max="12" step="0.1" value="4">
+                        <span class="setting-value" id="valRadius">4.0</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 物体变换 -->
+            <section class="panel">
+                <div class="panel-header">物体变换</div>
+                <div class="panel-content">
+                    <div class="setting-row">
+                        <span class="setting-label">缩放 S</span>
+                        <input type="range" id="rngScale" min="0.2" max="3" step="0.05" value="1">
+                        <span class="setting-value" id="valScale">1.00</span>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">平移 T</span>
+                        <input type="number" id="numTx" step="0.1" value="0" title="X">
+                        <input type="number" id="numTy" step="0.1" value="0" title="Y">
+                        <input type="number" id="numTz" step="0.1" value="0" title="Z">
+                        <button type="button" id="btnTransZero" class="btn">归零</button>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">旋转 R</span>
+                        <span id="rotInfo" style="color:#888;">跟踪球累积（鼠标左键拖动）</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 显示 -->
+            <section class="panel">
+                <div class="panel-header">显示</div>
+                <div class="panel-content">
+                    <label class="check-row"><input type="checkbox" id="chkGrid" checked>地面网格</label>
+                    <label class="check-row"><input type="checkbox" id="chkAxes" checked>坐标轴</label>
+                    <label class="check-row"><input type="checkbox" id="chkLabels" checked>轴标签</label>
+                    <label class="check-row"><input type="checkbox" id="chkGizmo" checked>角落朝向 gizmo</label>
+                </div>
+            </section>
+
+            <!-- 操作说明 -->
+            <section class="panel">
+                <div class="panel-header">操作说明</div>
+                <div class="panel-content">
+                    <div class="shortcut-row"><span class="kbd">左键拖动</span><span class="shortcut-desc">旋转物体（虚拟跟踪球）</span></div>
+                    <div class="shortcut-row"><span class="kbd">右键拖动</span><span class="shortcut-desc">旋转相机</span></div>
+                    <div class="shortcut-row"><span class="kbd">滚轮</span><span class="shortcut-desc">缩放相机距离</span></div>
+                    <div class="shortcut-row"><span class="kbd">↑</span><span class="kbd">↓</span><span class="kbd">←</span><span class="kbd">→</span><span class="shortcut-desc">平移物体</span></div>
+                    <div class="shortcut-row"><span class="kbd">Z</span><span class="kbd">C</span><span class="shortcut-desc">物体整体放大 / 缩小</span></div>
+                    <div class="shortcut-row"><span class="kbd">W</span><span class="kbd">S</span><span class="shortcut-desc">相机绕 X 轴转动（φ）</span></div>
+                    <div class="shortcut-row"><span class="kbd">A</span><span class="kbd">D</span><span class="shortcut-desc">相机绕 Y 轴转动（θ）</span></div>
+                    <div class="shortcut-row"><span class="kbd">P</span><span class="shortcut-desc">切换正交 / 透视投影</span></div>
+                    <div class="shortcut-row"><span class="kbd">M</span><span class="kbd">N</span><span class="shortcut-desc">调整透视视野角 fov</span></div>
+                    <div class="shortcut-row"><span class="kbd">空格</span><span class="shortcut-desc">重置复位</span></div>
+                </div>
+            </section>
+        </aside>
     </div>
-    <div style="display: flex; justify-content: center;">
-        <canvas id="canvas">Oops ... your browser doesn't support the HTML5 canvas element</canvas>
-    </div>
-    
+
+    <!-- ==================================================================
+         底部状态栏
+         ================================================================== -->
+    <footer id="status-bar">
+        <span>投影 <b id="stProjection">正交</b></span>
+        <span>相机 θ <b id="stTheta">45°</b></span>
+        <span>φ <b id="stPhi">54.7°</b></span>
+        <span>fov <b id="stFov">60°</b></span>
+        <span>距离 <b id="stRadius">4.0</b></span>
+        <span>模型 <b id="stModel">墨西哥帽</b></span>
+        <span>平移 <b id="stTrans">(0.0, 0.0, 0.0)</b></span>
+        <span>缩放 <b id="stScale">1.00</b></span>
+    </footer>
+
+</div>
 </body>
 </html>
