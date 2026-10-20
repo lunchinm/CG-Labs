@@ -61,7 +61,7 @@ var VIEW_PRESETS = {
 /* ***********窗口加载时调用:程序环境初始化程序****************** */
 window.onload = function() {
     canvas = document.getElementById("canvas");
-    gl = canvas.getContext('webgl2');
+    gl = canvas.getContext('webgl2', { antialias: true });  // 显式开启多重采样抗锯齿，轴/网格细线与模型轮廓更平滑
     if ( !gl ) { alert( "WebGL isn't available" ); return; }
 
     program = initShaders( gl, "shaders/3d-wandering.vert", "shaders/3d-wandering.frag" );
@@ -613,6 +613,7 @@ function updateTransInputs(){
  * 轴标签：把世界点经 P·V 投影到屏幕像素，用 HTML 覆盖层呈现（矢量清晰）
  * ================================================================== */
 var AXIS_LABEL_LENGTH = 2.0;   // 与 generateAxes() 中的半轴长保持一致
+var AXIS_LABEL_GAP    = 0.24;  // 标签相对轴端的额外外移量（避开圆锥箭头的尖端）
 
 function projectToScreen(p){
     /* 先把世界点变换到观察坐标系，判断它是否位于相机前方。
@@ -635,9 +636,9 @@ function projectToScreen(p){
 
 function updateAxisLabels(){
     var labs = [
-        { el: document.getElementById('axisLabelX'), p: vec3(AXIS_LABEL_LENGTH + 0.16, 0.0, 0.0) },
-        { el: document.getElementById('axisLabelY'), p: vec3(0.0, AXIS_LABEL_LENGTH + 0.16, 0.0) },
-        { el: document.getElementById('axisLabelZ'), p: vec3(0.0, 0.0, AXIS_LABEL_LENGTH + 0.16) }
+        { el: document.getElementById('axisLabelX'), p: vec3(AXIS_LABEL_LENGTH + AXIS_LABEL_GAP, 0.0, 0.0) },
+        { el: document.getElementById('axisLabelY'), p: vec3(0.0, AXIS_LABEL_LENGTH + AXIS_LABEL_GAP, 0.0) },
+        { el: document.getElementById('axisLabelZ'), p: vec3(0.0, 0.0, AXIS_LABEL_LENGTH + AXIS_LABEL_GAP) }
     ];
     for (var i = 0; i < labs.length; i++) {
         var el = labs[i].el;
