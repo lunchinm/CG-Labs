@@ -184,6 +184,27 @@
             white-space: nowrap;
         }
 
+        /* 左键功能徽标：中键可在"旋转物体 / 平移物体"之间切换，
+         * 位置放在视口左上角，与右上角的 #gizFrame、左下角的 #viewport-hint 互不冲突。 */
+        #modeBadge{
+            position: absolute;
+            left: 12px;
+            top: 12px;
+            padding: 3px 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #2f6fdb;
+            background: rgba(255,255,255,0.86);
+            border: 1px solid rgba(47,111,219,0.35);
+            border-radius: 6px;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        #modeBadge.is-translate{
+            color: #1f8a4c;
+            border-color: rgba(31,138,76,0.35);
+        }
+
         /* ------------------------------------------------------------------
          * 右侧设置面板
          * ------------------------------------------------------------------ */
@@ -407,7 +428,9 @@
             <!-- 角落朝向 gizmo 取景框（与 WebGL scissor 小视口对齐） -->
             <div id="gizFrame"></div>
 
-            <div id="viewport-hint">左键拖动＝旋转物体 ｜ 右键拖动＝旋转相机 ｜ 滚轮＝缩放相机 ｜ 方向键＝平移物体</div>
+            <div id="modeBadge">左键：旋转物体（中键切换）</div>
+
+            <div id="viewport-hint">左键＝旋转物体（中键切换为平移） ｜ 右键＝旋转相机 ｜ 滚轮＝缩放物体 ｜ Shift+滚轮＝推拉相机</div>
         </div>
 
         <aside id="side-panel">
@@ -442,8 +465,8 @@
                     </div>
                     <div class="setting-row">
                         <span class="setting-label">相机距离</span>
-                        <input type="range" id="rngRadius" min="1.5" max="12" step="0.1" value="4">
-                        <span class="setting-value" id="valRadius">4.0</span>
+                        <input type="range" id="rngRadius" min="2" max="40" step="0.5" value="9">
+                        <span class="setting-value" id="valRadius">9.0</span>
                     </div>
                 </div>
             </section>
@@ -486,13 +509,15 @@
             <section class="panel">
                 <div class="panel-header">操作说明</div>
                 <div class="panel-content">
-                    <div class="shortcut-row"><span class="kbd">左键拖动</span><span class="shortcut-desc">旋转物体（虚拟跟踪球）</span></div>
+                    <div class="shortcut-row"><span class="kbd">左键拖动</span><span class="shortcut-desc">旋转物体（虚拟跟踪球）／平移模式下移动物体</span></div>
+                    <div class="shortcut-row"><span class="kbd">中键</span><span class="shortcut-desc">切换左键功能：旋转物体 ⇄ 平移物体</span></div>
                     <div class="shortcut-row"><span class="kbd">右键拖动</span><span class="shortcut-desc">旋转相机</span></div>
-                    <div class="shortcut-row"><span class="kbd">滚轮</span><span class="shortcut-desc">缩放相机距离</span></div>
-                    <div class="shortcut-row"><span class="kbd">↑</span><span class="kbd">↓</span><span class="kbd">←</span><span class="kbd">→</span><span class="shortcut-desc">平移物体</span></div>
+                    <div class="shortcut-row"><span class="kbd">滚轮</span><span class="shortcut-desc">缩放物体（只有物体在缩放，坐标轴/网格不动）</span></div>
+                    <div class="shortcut-row"><span class="kbd">Shift</span><span class="kbd">滚轮</span><span class="shortcut-desc">推拉相机距离</span></div>
+                    <div class="shortcut-row"><span class="kbd">↑</span><span class="kbd">↓</span><span class="kbd">←</span><span class="kbd">→</span><span class="shortcut-desc">沿世界坐标轴平移物体</span></div>
                     <div class="shortcut-row"><span class="kbd">Z</span><span class="kbd">C</span><span class="shortcut-desc">物体整体放大 / 缩小</span></div>
-                    <div class="shortcut-row"><span class="kbd">W</span><span class="kbd">S</span><span class="shortcut-desc">相机绕 X 轴转动（φ）</span></div>
-                    <div class="shortcut-row"><span class="kbd">A</span><span class="kbd">D</span><span class="shortcut-desc">相机绕 Y 轴转动（θ）</span></div>
+                    <div class="shortcut-row"><span class="kbd">W</span><span class="kbd">S</span><span class="shortcut-desc">相机绕世界 X 轴俯仰（按住连续平滑旋转）</span></div>
+                    <div class="shortcut-row"><span class="kbd">A</span><span class="kbd">D</span><span class="shortcut-desc">相机绕世界 Y 轴旋转（按住连续平滑旋转）</span></div>
                     <div class="shortcut-row"><span class="kbd">P</span><span class="shortcut-desc">切换正交 / 透视投影</span></div>
                     <div class="shortcut-row"><span class="kbd">M</span><span class="kbd">N</span><span class="shortcut-desc">调整透视视野角 fov</span></div>
                     <div class="shortcut-row"><span class="kbd">空格</span><span class="shortcut-desc">重置复位</span></div>
@@ -509,7 +534,8 @@
         <span>相机 θ <b id="stTheta">45°</b></span>
         <span>φ <b id="stPhi">54.7°</b></span>
         <span>fov <b id="stFov">60°</b></span>
-        <span>距离 <b id="stRadius">4.0</b></span>
+        <span>距离 <b id="stRadius">9.0</b></span>
+        <span>左键 <b id="stLeftMode">旋转</b></span>
         <span>模型 <b id="stModel">墨西哥帽</b></span>
         <span>平移 <b id="stTrans">(0.0, 0.0, 0.0)</b></span>
         <span>缩放 <b id="stScale">1.00</b></span>
