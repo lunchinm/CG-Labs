@@ -32,6 +32,24 @@ var camUp = null;
 var MODEL_SCALE_MIN = 0.2;     // 物体缩放下限
 var MODEL_SCALE_MAX = 10.0;    // 物体缩放上限（Z/C、滚轮、侧栏滑块共用）
 
+/* 附加项：外部 OBJ 网格（由"导入 OBJ"读入后暂存在这里，切换模型不会丢失）
+ * edgePoints/edgeColors 是网格每条唯一棱边的线段数据，用于叠加"边线锐化"，
+ * 使导入模型的面片结构与轮廓比纯色块更清晰。 */
+var objModelPoints = null;
+var objModelColors = null;
+var objEdgePoints = null;
+var objEdgeColors = null;
+var objModelName = '';
+
+/* 附加项：层次模型的动画状态（太阳系 / 齿轮组）。t 为动画时间（秒），speed 为倍率 */
+var sceneAnim = { t: 0.0, playing: true, speed: 1.0 };
+var sceneAnimRunning = false, sceneAnimLast = 0;
+
+/* 会播放层次动画的模型：太阳系、齿轮组 */
+function isAnimatedModel(model){
+    return model === 'solar' || model === 'gears';
+}
+
 var leftDragMode = 'rotate';   // 鼠标左键功能：'rotate'=旋转物体 / 'translate'=平移物体（中键切换）
 
 var showAxes = true;           // 显示：坐标轴
@@ -49,6 +67,8 @@ var u_Flag;//用来区分绘制坐标还是物体，坐标轴不需要进行M变
 // 各段在顶点缓冲区中的位置（由 buildScene() 统一计算）
 var objStart = 0;              // 物体段起始下标
 var objCount = 0;              // 物体段顶点数
+var objEdgeStart = 0;          // 导入模型的边线段起始下标（其余模型为 0，不绘制）
+var objEdgeCount = 0;          // 导入模型的边线段顶点数
 
 // 场景中的默认观察参数
 // 默认相机距离与默认 fov 满足 r·tan(fov/2) = 15.5·tan30° ≈ 8.95 = 正交 halfV，
@@ -291,7 +311,8 @@ function camAnimFrame(now){
  * 代价是画面会产生滚转（世界 X 轴在屏幕上保持不动、其余景物绕它倾斜），
  * 这是"绕世界 X 轴旋转相机"必然的几何结果；"地平线恒水平"只在 θ=0°/180°
  * （前/后视图，视线位于 YZ 平面内）时才与它重合。
- * 一旦用户改用滑块、视图预设或右键拖动重新给定 (θ, φ)，camUp 即被清空、回到无滚转姿态。 */
+ * 一旦用户改用滑块或视图预设重新给定 (θ, φ)，camUp 即被清空、回到无滚转姿态；
+ * 右键拖动与 W/S、A/D 走同一套刚性旋转，同样保留（并累积）滚转。 */
 
 /* 把相机极坐标参数限制在合法范围内（θ 环绕到 [-180,180)，φ 截断到 [0,180]） */
 function clampCamera(){
@@ -321,7 +342,25 @@ function render(){
     /* ---------- pass1：中心物体（写深度，作为遮挡参照）---------- */
     gl.uniform1i( u_Flag, 1 );   // 标志位=1，顶点先经 M 变换再经 P·V
     gl.depthMask( true );
-    gl.drawArrays( gl.TRIANGLES, objStart, objCount );
+    if (currentModel === 'solar' && solarSegments) {
+        drawSolarBodies(ModelMatrix);       // 层次建模：太阳 / 地球 / 月球各用独立的 M
+    } else if (currentModel === 'gears' && gearSegments) {
+        drawGearTrain(ModelMatrix);         // 层次建模：齿轮 A → B → C 依次传递转角
+    } else {
+        var drawObjEdges = (currentModel === 'obj' && objEdgeCount > 0);
+        if (drawObjEdges) {
+            /* 边线与三角面共面，直接叠加会因光栅化规则不同而出现明暗斑驳（z-fighting）。
+             * 先把面沿深度方向整体后移一点，再画线，棱边就稳定地压在面之上；
+             * 深度测试照常保留，被面挡住的背面棱边仍然不可见（等效隐藏线消除）。 */
+            gl.enable(gl.POLYGON_OFFSET_FILL);
+            gl.polygonOffset(1.0, 1.0);
+        }
+        gl.drawArrays( gl.TRIANGLES, objStart, objCount );
+        if (drawObjEdges) {
+            gl.disable(gl.POLYGON_OFFSET_FILL);
+            gl.drawArrays( gl.LINES, objEdgeStart, objEdgeCount );
+        }
+    }
 
     /* ---------- pass2：三色坐标轴（不写深度，被物体正确遮挡）---------- */
     gl.uniform1i( u_Flag, 0 );   // 标志位=0，只用 P·V 绘制，不做模型变换
@@ -349,6 +388,119 @@ function render(){
     // 每帧把参数写回界面与状态栏，并更新角落 gizmo 的 X/Y/Z 标识位置
     syncUI();
     updateGizmoLabels();
+}
+
+/* ==================================================================
+ * 附加项：层次建模与动画（太阳系）
+ * 变换按父子关系逐级复合：
+ *   太阳   M_sun   = M · R_y(自转)
+ *   地球   M_earth = M · T(公转位置) · R_y(自转)
+ *   月球   M_moon  = M · T(公转位置) · R_y(月球公转) · T(1.5,0,0) · R_y(自转)
+ * 其中 M 为用户对整体系统的平移/旋转/缩放（T·R·S）。
+ * ================================================================== */
+var SOLAR_EARTH_ORBIT_R = 6.0;      // 地球公转半径
+var SOLAR_MOON_ORBIT_R  = 1.5;      // 月球公转半径
+
+/* 各天体的角速度（度/秒，速度倍率为 1 时） */
+var SOLAR_RATE = {
+    earthOrbit: 20.0,
+    earthSpin: 120.0,
+    moonOrbit: 260.0,
+    moonSpin: 150.0,
+    sunSpin: 16.0
+};
+
+function solarEarthPosition(){
+    var a = radians(sceneAnim.t * SOLAR_RATE.earthOrbit);
+    return [SOLAR_EARTH_ORBIT_R * Math.cos(a), 0.0, SOLAR_EARTH_ORBIT_R * Math.sin(a)];
+}
+
+function solarModelMatrices(baseM){
+    var t = sceneAnim.t;
+    var p = solarEarthPosition();
+    var earthAnchor = translate(p[0], p[1], p[2]);
+
+    var sunM = mult(baseM, rotate(t * SOLAR_RATE.sunSpin, [0, 1, 0]));
+    var earthM = mult(baseM, mult(earthAnchor, rotate(t * SOLAR_RATE.earthSpin, [0, 1, 0])));
+    var moonM = mult(baseM, mult(earthAnchor,
+                    mult(rotate(t * SOLAR_RATE.moonOrbit, [0, 1, 0]),
+                    mult(translate(SOLAR_MOON_ORBIT_R, 0, 0),
+                         rotate(t * SOLAR_RATE.moonSpin, [0, 1, 0])))));
+    return { sun: sunM, earth: earthM, moon: moonM, anchor: mult(baseM, earthAnchor) };
+}
+
+function drawSolarBodies(baseM){
+    var m = solarModelMatrices(baseM);
+    var s = solarSegments;
+
+    gl.uniformMatrix4fv(u_ModelMatrix, false, flatten(m.sun));
+    gl.drawArrays(gl.TRIANGLES, s.sunStart, s.sunCount);
+
+    gl.uniformMatrix4fv(u_ModelMatrix, false, flatten(m.earth));
+    gl.drawArrays(gl.TRIANGLES, s.earthStart, s.earthCount);
+
+    gl.uniformMatrix4fv(u_ModelMatrix, false, flatten(m.moon));
+    gl.drawArrays(gl.TRIANGLES, s.moonStart, s.moonCount);
+
+    /* 轨道线不写深度，但仍参与深度测试，因此会被星球正确遮挡 */
+    gl.depthMask(false);
+    gl.uniformMatrix4fv(u_ModelMatrix, false, flatten(baseM));
+    gl.drawArrays(gl.LINES, s.earthOrbitStart, s.earthOrbitCount);
+    gl.uniformMatrix4fv(u_ModelMatrix, false, flatten(m.anchor));
+    gl.drawArrays(gl.LINES, s.moonOrbitStart, s.moonOrbitCount);
+    gl.depthMask(true);
+}
+
+/* ==================================================================
+ * 附加项：层次建模与动画（齿轮组）
+ * 主动轮 A 的转角由时间直接给出，B 的转角由 A 按齿数比换算、C 的由 B 换算：
+ *   θA = ω·t，θB = −θA·NA/NB，θC = −θB·NB/NC
+ * 各自的模型矩阵为 M · T(轴心位置) · R_z(转角)，
+ * 因此“子级转角依赖父级转角”，与太阳系一样是逐级复合的层次结构。
+ * ================================================================== */
+var GEAR_RATE = 40.0;       // 主动轮 A 的角速度（度/秒，速度倍率为 1 时）
+
+function gearModelMatrices(baseM){
+    var p = gearLayout.pos, n = gearLayout.teeth;
+    var aA = sceneAnim.t * GEAR_RATE;
+    var aB = -aA * n[0] / n[1];
+    var aC = -aB * n[1] / n[2];
+
+    return [
+        mult(baseM, mult(translate(p[0][0], p[0][1], 0), rotate(aA, [0, 0, 1]))),
+        mult(baseM, mult(translate(p[1][0], p[1][1], 0), rotate(aB, [0, 0, 1]))),
+        mult(baseM, mult(translate(p[2][0], p[2][1], 0), rotate(aC, [0, 0, 1])))
+    ];
+}
+
+function drawGearTrain(baseM){
+    var mats = gearModelMatrices(baseM);
+    var segs = gearSegments.gears;
+    for (var i = 0; i < segs.length; i++) {
+        gl.uniformMatrix4fv(u_ModelMatrix, false, flatten(mats[i]));
+        gl.drawArrays(gl.TRIANGLES, segs[i].start, segs[i].count);
+    }
+}
+
+/* 层次动画循环：太阳系与齿轮组共用，只在当前模型属于层次模型且播放时推进时间 */
+function startSolarAnim(){
+    if (sceneAnimRunning) return;
+    if (!isAnimatedModel(currentModel) || !sceneAnim.playing) return;
+    sceneAnimRunning = true;
+    sceneAnimLast = performance.now();
+    requestAnimationFrame(sceneAnimFrame);
+}
+
+function sceneAnimFrame(now){
+    if (!isAnimatedModel(currentModel) || !sceneAnim.playing) {
+        sceneAnimRunning = false;
+        return;
+    }
+    var dt = Math.min(0.05, Math.max(0.0, (now - sceneAnimLast) / 1000));
+    sceneAnimLast = now;
+    sceneAnim.t += dt * sceneAnim.speed;
+    render();
+    requestAnimationFrame(sceneAnimFrame);
 }
 
 /* 在视口右上角的小方形区域内绘制朝向 gizmo：
@@ -423,6 +575,10 @@ function SendData(){
 function buildScene(model){
     points = [];
     colors = [];
+    solarSegments = null;          // 非太阳系场景时清空层次段信息
+    gearSegments = null;           // 非齿轮组场景时清空层次段信息
+    objEdgeStart = 0;              // 只有导入模型才有边线段，其余模型清零
+    objEdgeCount = 0;
 
     generateAxes();    // 三色坐标轴 + 圆锥箭头（段计数：axisVertexCount/axisLineCount）
     generateGizmo();   // 角落朝向 gizmo（段计数：gizmoVertexCount/gizmoLineCount）
@@ -431,9 +587,34 @@ function buildScene(model){
     switch (model) {
         case 'cube':   generateCube();   break;
         case 'sphere': generateSphere(); break;
+        case 'teapot': generateTeapot(); break;
+        case 'knot':   generateTorusKnot(); break;
+        case 'solar':  generateSolarSystem(); break;
+        case 'gears':  generateGearTrain(); break;
+        case 'obj':
+            if (objModelPoints && objModelColors) {
+                for (var i = 0; i < objModelPoints.length; i++) {
+                    points.push(objModelPoints[i]);
+                    colors.push(objModelColors[i]);
+                }
+                /* 紧接三角面之后追加棱边线段，作为独立的一段单独用 LINES 绘制；
+                 * 它排在物体段尾部，不会扰动前面坐标轴与 gizmo 的固定下标。 */
+                if (objEdgePoints) {
+                    objEdgeStart = points.length;
+                    for (var j = 0; j < objEdgePoints.length; j++) {
+                        points.push(objEdgePoints[j]);
+                        colors.push(objEdgeColors[j]);
+                    }
+                    objEdgeCount = points.length - objEdgeStart;
+                }
+            } else {
+                generateCube();        // 尚未导入文件时退化为方块
+            }
+            break;
         default:       generateHat();    break;
     }
-    objCount = points.length - objStart;
+    /* objCount 只统计三角面，边线段（objEdgeCount）不计入，否则会被当成三角形绘制 */
+    objCount = points.length - objStart - objEdgeCount;
 
     SendData();//发送顶点属性数据给GPU
 }
@@ -444,6 +625,15 @@ function buildScene(model){
 function modelChange(model){
     currentModel = model;
     buildScene(model);
+
+    /* 进入层次模型（太阳系 / 齿轮组）时从零开始播放，并确保动画循环已启动；
+     * 切出后循环会在下一帧自行退出。 */
+    if (isAnimatedModel(model)) {
+        sceneAnim.t = 0.0;
+        sceneAnim.playing = true;
+        startSolarAnim();
+    }
+
     syncUI();
     render();//重新渲染
 }
@@ -616,6 +806,30 @@ function initUI(){
         bindClick(btn, function(){ setView(btn.dataset.view); });
     });
 
+    /* 工具栏：导入外部 OBJ 网格 */
+    var objInput = document.getElementById('objFileInput');
+    bindClick(document.getElementById('btnImportObj'), function(){ objInput.click(); });
+    objInput.addEventListener('change', function(e){
+        var file = e.target.files && e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(){
+            try {
+                var mesh = parseOBJ(reader.result);
+                objModelPoints = mesh.points;
+                objModelColors = mesh.colors;
+                objEdgePoints  = mesh.edgePoints;
+                objEdgeColors  = mesh.edgeColors;
+                objModelName = file.name;
+                modelChange('obj');
+            } catch (err) {
+                alert('OBJ 导入失败：' + err.message);
+            }
+            objInput.value = '';        // 允许再次导入同一个文件
+        };
+        reader.readAsText(file);
+    });
+
     /* 工具栏：投影切换 / 复位 */
     bindClick(document.getElementById('btnProj'), function(){
         isOrth = !isOrth; syncUI(); render();
@@ -635,14 +849,22 @@ function initUI(){
     bindNumber('numTx', function(v){ modelTrans[0] = v; });
     bindNumber('numTy', function(v){ modelTrans[1] = v; });
     bindNumber('numTz', function(v){ modelTrans[2] = v; });
-    bindClick(document.getElementById('btnTransZero'), function(){
-        modelTrans = vec3(0,0,0); syncUI(); render();
-    });
 
     /* 侧栏：显示开关 */
     bindCheck('chkAxes',   function(v){ showAxes = v; });
     bindCheck('chkLabels', function(v){ showLabels = v; });
     bindCheck('chkGizmo',  function(v){ showGizmo = v; });
+
+    /* 侧栏：太阳系动画（仅层次模型生效） */
+    bindRange('rngSpeed', function(v){ sceneAnim.speed = v; });
+    document.getElementById('chkAnim').addEventListener('change', function(e){
+        sceneAnim.playing = e.target.checked;
+        if (sceneAnim.playing) startSolarAnim();
+        syncUI();
+    });
+    bindClick(document.getElementById('btnAnimReset'), function(){
+        sceneAnim.t = 0.0; syncUI(); render();
+    });
 }
 
 function bindRange(id, setter){
@@ -714,8 +936,12 @@ function syncUI(){
     document.getElementById('rngRadius').value = camRadius;
     document.getElementById('rngScale').value  = Math.max(MODEL_SCALE_MIN, Math.min(MODEL_SCALE_MAX, modelScale));
 
-    var modelName = { cube: '方块', sphere: '球', hat: '墨西哥帽' }[currentModel] || currentModel;
-    document.getElementById('stModel').textContent = modelName;
+    var modelNames = {
+        cube: '方块', sphere: '球', hat: '墨西哥帽',
+        teapot: 'Newell 茶壶', knot: '环面纽结', solar: '太阳系', gears: '齿轮组',
+        obj: objModelName ? ('OBJ：' + objModelName) : '外部 OBJ'
+    };
+    document.getElementById('stModel').textContent = modelNames[currentModel] || currentModel;
     document.getElementById('stTrans').textContent =
         '(' + modelTrans[0].toFixed(1) + ', ' + modelTrans[1].toFixed(1) + ', ' + modelTrans[2].toFixed(1) + ')';
 
@@ -728,7 +954,7 @@ function syncUI(){
 
     document.getElementById('rotInfo').textContent = rotationInfo();
 
-    /* 平移数字框跟随 modelTrans 实时回显（左键平移、方向键、归零都会经过这里）。
+    /* 平移数字框跟随 modelTrans 实时回显（左键平移、方向键都会经过这里）。
      * 必须放在 syncUI() 里而不是只在初始化时写一次，否则拖动平移时
      * 侧栏数字框会一直停在旧值，看起来像"平移量没有变化"。 */
     updateTransInputs();
@@ -737,6 +963,12 @@ function syncUI(){
     document.querySelectorAll('#segModel button').forEach(function(btn){
         btn.classList.toggle('active', btn.dataset.model === currentModel);
     });
+
+    /* 动画面板只在层次模型（太阳系 / 齿轮组）场景显示，并回显播放状态与速度 */
+    document.getElementById('animPanel').classList.toggle('is-hidden', !isAnimatedModel(currentModel));
+    document.getElementById('chkAnim').checked = sceneAnim.playing;
+    document.getElementById('rngSpeed').value = sceneAnim.speed;
+    document.getElementById('valSpeed').textContent = sceneAnim.speed.toFixed(1) + '×';
 
     /* 同步视图预设高亮：当前方向不落在任何预设上时全部取消高亮 */
     var activeName = activeViewPreset();
@@ -994,19 +1226,25 @@ function translateObjectByDrag(e){
     render();
 }
 
-/* 右键拖动：横向改方位角 θ、纵向改仰角 φ（每像素 0.3°）。
- * 方向统一为"抓取式"：拖动方向 = 物体在屏幕上的移动方向（与左键旋转/平移一致）。
- *   - 向右拖动 → 物体右移：相机绕 Y 轴向左绕行，θ 减小；
- *   - 向下拖动 → 物体下移：相机抬高、视线更俯视，φ（相对 +Y 轴的仰角）减小。
- * φ 的符号务必要与横向一致，否则会出现"横向对、纵向反"的割裂手感。 */
+/* 右键拖动：绕世界坐标轴刚体旋转相机（每像素 0.3°）。
+ *   - 横向 → 绕世界 Y 轴（与 A/D 同一函数），向右拖动时物体右移；
+ *   - 纵向 → 绕世界 X 轴（与 W/S 同一函数），向下拖动时物体下移。
+ * 关键点：
+ *  1) 转动轴严格取世界 X / Y 轴，不能"只改 φ 再按球面公式重算 up"。
+ *     那样 up 永远落在"世界 Y 轴与视线决定"的竖直平面内，
+ *     世界 Y 轴在屏幕上也就永远是一条竖直的线——无论怎么拖都只在
+ *     "垂直于屏幕"的那个平面里翻，这正是本次要修的问题。
+ *  2) eye 与 up 作为刚体一起转（rotateCameraAboutWorldX/Y 内部同时改两者，
+ *     并把结果写入 camUp），两者的 90° 夹角保持不变，转动轴不会漂移；
+ *     世界 Y 轴因此可以倾斜出竖直平面，在屏幕上出现横向分量。
+ *  3) 每步都是刚体旋转且严格可逆，拖动回起点时姿态精确复原。 */
 function rotateCameraByDrag(e){
     if (!cameraDragLast) return;
     var dx = e.clientX - cameraDragLast.x;
     var dy = e.clientY - cameraDragLast.y;
     cameraDragLast = { x: e.clientX, y: e.clientY };
-    theta -= dx * 0.3;
-    phi   -= dy * 0.3;
-    resetCamUp();        // 手动给定 (θ, φ) 即回到无滚转姿态
+    if (dx) rotateCameraAboutWorldY(-dx * 0.3);
+    if (dy) rotateCameraAboutWorldX(-dy * 0.3);
     clampCamera();
     syncUI();
     render();
@@ -1026,4 +1264,103 @@ function trackballPoint(e){
         return vec3(nx * s, ny * s, 0.0);
     }
     return vec3(nx, ny, Math.sqrt(1.0 - d));
+}
+
+/* ==================================================================
+ * 附加项：Wavefront OBJ 网格导入
+ * 只解析几何部分：v 顶点、f 面（支持 v/vt/vn 与负下标，多边形按扇形三角化）。
+ * 面法线由三角形两条边叉乘求得，再烘焙 Lambert 明暗；
+ * 读入后按包围盒居中、缩放到最大跨度 2.6，使其与其它模型尺度相当。
+ * ================================================================== */
+var OBJ_MAX_TRIANGLES = 120000;    // 上限，避免超大模型阻塞浏览器
+
+function parseOBJ(text){
+    var lines = text.split(/\r?\n/);
+    var verts = [];
+    var tris = [];
+    var base = vec4(0.70, 0.76, 0.86, 1.0);
+
+    for (var li = 0; li < lines.length; li++) {
+        var line = lines[li].trim();
+        if (!line || line.charAt(0) === '#') continue;
+        var tok = line.split(/\s+/);
+        if (tok[0] === 'v') {
+            verts.push([parseFloat(tok[1]), parseFloat(tok[2]), parseFloat(tok[3])]);
+        } else if (tok[0] === 'f') {
+            var idx = [];
+            for (var k = 1; k < tok.length; k++) {
+                var s = tok[k].split('/')[0];
+                var n = parseInt(s, 10);
+                if (!isFinite(n)) continue;
+                idx.push(n < 0 ? verts.length + n : n - 1);   // OBJ 下标从 1 开始
+            }
+            for (var m = 1; m + 1 < idx.length; m++) {
+                tris.push([idx[0], idx[m], idx[m + 1]]);      // 多边形 → 三角形扇
+                if (tris.length > OBJ_MAX_TRIANGLES) {
+                    throw new Error('面数超过 ' + OBJ_MAX_TRIANGLES + '，请先简化模型');
+                }
+            }
+        }
+    }
+    if (!verts.length || !tris.length) throw new Error('文件中没有可用的顶点或面');
+
+    // 包围盒居中与归一化
+    var minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, minz = 1e9, maxz = -1e9;
+    for (var i = 0; i < verts.length; i++) {
+        var v = verts[i];
+        if (v[0] < minx) minx = v[0]; if (v[0] > maxx) maxx = v[0];
+        if (v[1] < miny) miny = v[1]; if (v[1] > maxy) maxy = v[1];
+        if (v[2] < minz) minz = v[2]; if (v[2] > maxz) maxz = v[2];
+    }
+    var cx = (minx + maxx) * 0.5, cy = (miny + maxy) * 0.5, cz = (minz + maxz) * 0.5;
+    var span = Math.max(maxx - minx, Math.max(maxy - miny, maxz - minz)) || 1.0;
+    var s = 2.6 / span;
+
+    var pts = [], cls = [];
+    for (var f = 0; f < tris.length; f++) {
+        var t = tris[f];
+        var a = verts[t[0]], b = verts[t[1]], c = verts[t[2]];
+        if (!a || !b || !c) continue;
+
+        var e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        var e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        var nx = e1[1] * e2[2] - e1[2] * e2[1];
+        var ny = e1[2] * e2[0] - e1[0] * e2[2];
+        var nz = e1[0] * e2[1] - e1[1] * e2[0];
+        var nl = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
+        var n = [nx / nl, ny / nl, nz / nl];
+
+        var tri = [a, b, c];
+        for (var q = 0; q < 3; q++) {
+            pts.push(vec4((tri[q][0] - cx) * s, (tri[q][1] - cy) * s, (tri[q][2] - cz) * s, 1.0));
+            cls.push(shadeColor(base, n));
+        }
+    }
+
+    /* ---------- 边线锐化 ----------
+     * 为网格中每条"唯一棱边"生成一段线，叠加在着色面上，使面片结构与轮廓
+     * 比纯色块锐利。共享边会被相邻两个三角形各报告一次，用顶点下标对
+     * （小_大）去重，保证每条边只画一次，避免重线过黑。
+     * 线色取基色的暗调；alpha 随边数自适应：网格越密线越淡，
+     * 否则高面数模型会被线网糊成一片深色。 */
+    var edgeMap = {}, epts = [], ecls = [];
+    for (var fi = 0; fi < tris.length; fi++) {
+        var tf = tris[fi];
+        if (!verts[tf[0]] || !verts[tf[1]] || !verts[tf[2]]) continue;
+        for (var ei = 0; ei < 3; ei++) {
+            var i0 = tf[ei], i1 = tf[(ei + 1) % 3];
+            var key = (i0 < i1) ? (i0 + '_' + i1) : (i1 + '_' + i0);
+            if (edgeMap[key]) continue;
+            edgeMap[key] = 1;
+            var p0 = verts[i0], p1 = verts[i1];
+            epts.push(vec4((p0[0] - cx) * s, (p0[1] - cy) * s, (p0[2] - cz) * s, 1.0));
+            epts.push(vec4((p1[0] - cx) * s, (p1[1] - cy) * s, (p1[2] - cz) * s, 1.0));
+        }
+    }
+    var edgeAlpha = Math.max(0.28, Math.min(0.62, 9000 / Math.max(1, epts.length / 2)));
+    for (var ci = 0; ci < epts.length; ci++) {
+        ecls.push(vec4(base[0] * 0.30, base[1] * 0.30, base[2] * 0.30, edgeAlpha));
+    }
+
+    return { points: pts, colors: cls, edgePoints: epts, edgeColors: ecls };
 }

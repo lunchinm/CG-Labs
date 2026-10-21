@@ -203,6 +203,8 @@
             overflow-y: auto;
         }
         .panel{ border-bottom: 1px solid #eef1f5; }
+        .panel.is-hidden{ display: none; }                 /* 动画面板仅在层次模型下显示 */
+        .file-input{ display: none; }
         .panel-header{
             padding: 7px 12px;
             font-size: 12px;
@@ -341,6 +343,7 @@
     <script type="text/javascript" src="./Common/webgl-utils.js"></script>
     <script type="text/javascript" src="./Common/initShaders2.js"></script>
     <script type="text/javascript" src="./Common/MVnew.js"></script>
+    <script type="text/javascript" src="./teapot-data.js"></script>
     <script type="text/javascript" src="./models-data.js"></script>
     <script type="text/javascript" src="./3d-wandering.js"></script>
 </head>
@@ -363,7 +366,16 @@
                 <button type="button" data-model="cube">方块</button>
                 <button type="button" data-model="sphere">球</button>
                 <button type="button" data-model="hat" class="active">墨西哥帽</button>
+                <button type="button" data-model="teapot">茶壶</button>
+                <button type="button" data-model="knot">环面纽结</button>
+                <button type="button" data-model="solar">太阳系</button>
+                <button type="button" data-model="gears">齿轮组</button>
             </div>
+            <button type="button" id="btnImportObj" class="btn" title="导入 Wavefront OBJ 网格文件">
+                <svg viewBox="0 0 24 24"><path d="M4 20 V4 H14 L20 10 V20 Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M14 4 V10 H20" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                <span>导入 OBJ</span>
+            </button>
+            <input type="file" id="objFileInput" class="file-input" accept=".obj">
         </div>
 
         <div class="toolbar-group">
@@ -451,11 +463,26 @@
                         <input type="number" id="numTx" step="0.1" value="0" title="X">
                         <input type="number" id="numTy" step="0.1" value="0" title="Y">
                         <input type="number" id="numTz" step="0.1" value="0" title="Z">
-                        <button type="button" id="btnTransZero" class="btn">归零</button>
                     </div>
                     <div class="setting-row">
                         <span class="setting-label">旋转 R</span>
                         <span id="rotInfo" style="color:#888;">跟踪球累积（鼠标左键拖动）</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 动画（仅太阳系等层次模型显示） -->
+            <section class="panel is-hidden" id="animPanel">
+                <div class="panel-header">动画</div>
+                <div class="panel-content">
+                    <div class="setting-row">
+                        <label class="check-row" style="flex:1;"><input type="checkbox" id="chkAnim" checked>播放动画</label>
+                        <button type="button" id="btnAnimReset" class="btn">重置</button>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">速度</span>
+                        <input type="range" id="rngSpeed" min="0" max="3" step="0.1" value="1">
+                        <span class="setting-value" id="valSpeed">1.0×</span>
                     </div>
                 </div>
             </section>

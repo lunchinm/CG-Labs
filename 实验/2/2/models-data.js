@@ -417,5 +417,430 @@ function hatColor(y)
 }
 
 
+/* ==================================================================
+ * 附加项一：复杂几何模型
+ *   1) Newell 茶壶 —— 32 个双三次 Bézier 补丁（控制点见 teapot-data.js）
+ *   2) 环面纽结   —— (2, 3) 参数曲线扫掠圆管
+ *   3) 太阳系     —— 太阳 / 地球 / 月球三个球体 + 两条轨道线，
+ *                    供"层次建模与动画"使用（各段下标见 solarSegments）
+ * ================================================================== */
+
+/****************************************************
+ * 用 UV 球生成一个球体：stacks 为纬向分段、slices 为经向分段。
+ * 顶点色按球面法线做 Lambert 明暗烘焙，与其它模型保持一致。
+ ****************************************************/
+function pushUVSphere(radius, base, stacks, slices)
+{
+    function pushTri(a, b, c)
+    {
+        points.push(a); colors.push(shadeColor(base, [a[0], a[1], a[2]]));
+        points.push(b); colors.push(shadeColor(base, [b[0], b[1], b[2]]));
+        points.push(c); colors.push(shadeColor(base, [c[0], c[1], c[2]]));
+    }
+
+    function at(theta, phi)
+    {
+        return vec4(radius * Math.sin(theta) * Math.sin(phi),
+                    radius * Math.cos(theta),
+                    radius * Math.sin(theta) * Math.cos(phi),
+                    1.0);
+    }
+
+    for (var i = 0; i < stacks; i++) {
+        var t0 = Math.PI * i / stacks,
+            t1 = Math.PI * (i + 1) / stacks;
+        for (var j = 0; j < slices; j++) {
+            var p0 = 2.0 * Math.PI * j / slices,
+                p1 = 2.0 * Math.PI * (j + 1) / slices;
+            var a = at(t0, p0), b = at(t1, p0), c = at(t1, p1), d = at(t0, p1);
+            /* 两极处的四边形退化成三角形：i=0 时 a 与 d 重合于北极，
+             * i=stacks-1 时 b 与 c 重合于南极，必须单独处理，否则极点处
+             * 会留下一个未被封闭的窟窿（从外面看是一个暗斑）。 */
+            if (i === 0)                 pushTri(a, b, c);
+            else if (i === stacks - 1)   pushTri(a, b, d);
+            else { pushTri(a, b, c); pushTri(a, c, d); }
+        }
+    }
+}
+
+/****************************************************
+ * 茶壶补丁求值：cp 为 4×4 控制点，u/v 为补丁参数，
+ * 同时用 Bernstein 基函数的导数求出两个切向量，叉乘得到法线。
+ ****************************************************/
+var BZ = [0, 0, 0, 0], BZD = [0, 0, 0, 0];
+
+function bernstein(t)
+{
+    var s = 1.0 - t;
+    BZ[0] = s * s * s;
+    BZ[1] = 3.0 * t * s * s;
+    BZ[2] = 3.0 * t * t * s;
+    BZ[3] = t * t * t;
+    BZD[0] = -3.0 * s * s;
+    BZD[1] = 3.0 * s * s - 6.0 * t * s;
+    BZD[2] = 6.0 * t * s - 3.0 * t * t;
+    BZD[3] = 3.0 * t * t;
+}
+
+function evalPatch(cp, u, v, outP, outN)
+{
+    bernstein(u);
+    var bu = [BZ[0], BZ[1], BZ[2], BZ[3]];
+    var du = [BZD[0], BZD[1], BZD[2], BZD[3]];
+    bernstein(v);
+    var bv = [BZ[0], BZ[1], BZ[2], BZ[3]];
+    var dv = [BZD[0], BZD[1], BZD[2], BZD[3]];
+
+    var px = 0, py = 0, pz = 0, ux = 0, uy = 0, uz = 0, vx = 0, vy = 0, vz = 0;
+    for (var i = 0; i < 4; i++) {
+        for (var j = 0; j < 4; j++) {
+            var p = cp[i][j];
+            var w  = bu[i] * bv[j];
+            var wu = du[i] * bv[j];
+            var wv = bu[i] * dv[j];
+            px += p[0] * w;  py += p[1] * w;  pz += p[2] * w;
+            ux += p[0] * wu; uy += p[1] * wu; uz += p[2] * wu;
+            vx += p[0] * wv; vy += p[1] * wv; vz += p[2] * wv;
+        }
+    }
+    outP[0] = px; outP[1] = py; outP[2] = pz;
+
+    var nx = uy * vz - uz * vy,
+        ny = uz * vx - ux * vz,
+        nz = ux * vy - uy * vx;
+    // 补丁控制网格的朝向不完全一致，用"由原点指向外的方向"统一法线朝向
+    if (nx * px + ny * py + nz * pz < 0.0) { nx = -nx; ny = -ny; nz = -nz; }
+    outN[0] = nx; outN[1] = ny; outN[2] = nz;
+}
+
+/****************************************************
+ * Newell 茶壶：遍历 32 个补丁，每个补丁细分 TEAPOT_SEG×TEAPOT_SEG 个四边形。
+ * 原始数据以 Z 轴向上，这里映射为 (x, z, y) 以匹配场景的 Y 轴向上；
+ * 再按包围盒居中、缩放到最大跨度为 2.6，使其与其它模型尺度相当。
+ ****************************************************/
+function generateTeapot()
+{
+    var SEG = 8;
+    var BASE = vec4(0.86, 0.62, 0.42, 1.0);
+
+    // 1) 坐标映射与归一化（只处理一次控制点，之后直接求值）
+    var ctrl = [];
+    var minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, minz = 1e9, maxz = -1e9;
+    for (var k = 0; k < TEAPOT_VERTICES.length; k += 3) {
+        var x = TEAPOT_VERTICES[k],
+            y = TEAPOT_VERTICES[k + 2],     // 原 Z 轴 → 世界 Y 轴
+            z = TEAPOT_VERTICES[k + 1];     // 原 Y 轴 → 世界 Z 轴
+        ctrl.push([x, y, z]);
+        if (x < minx) minx = x;  if (x > maxx) maxx = x;
+        if (y < miny) miny = y;  if (y > maxy) maxy = y;
+        if (z < minz) minz = z;  if (z > maxz) maxz = z;
+    }
+    var cx = (minx + maxx) * 0.5, cy = (miny + maxy) * 0.5, cz = (minz + maxz) * 0.5;
+    var span = Math.max(maxx - minx, Math.max(maxy - miny, maxz - minz));
+    var s = 2.6 / span;
+    for (var q = 0; q < ctrl.length; q++) {
+        ctrl[q] = [(ctrl[q][0] - cx) * s, (ctrl[q][1] - cy) * s, (ctrl[q][2] - cz) * s];
+    }
+
+    // 2) 逐补丁细分
+    var P = [0, 0, 0], N = [0, 0, 0];
+    for (var np = 0; np < 32; np++) {
+        var cp = [];
+        for (var i = 0; i < 4; i++) {
+            var row = [];
+            for (var j = 0; j < 4; j++) row.push(ctrl[TEAPOT_PATCHES[np * 16 + i * 4 + j]]);
+            cp.push(row);
+        }
+        for (var a = 0; a < SEG; a++) {
+            for (var b = 0; b < SEG; b++) {
+                var u0 = a / SEG, u1 = (a + 1) / SEG;
+                var v0 = b / SEG, v1 = (b + 1) / SEG;
+                var pts = [], nrm = [];
+                var uv = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+                for (var t = 0; t < 4; t++) {
+                    evalPatch(cp, uv[t][0], uv[t][1], P, N);
+                    pts.push(vec4(P[0], P[1], P[2], 1.0));
+                    var nl = Math.sqrt(N[0] * N[0] + N[1] * N[1] + N[2] * N[2]) || 1.0;
+                    nrm.push([N[0] / nl, N[1] / nl, N[2] / nl]);
+                }
+                var tri = [0, 1, 2, 0, 2, 3];
+                for (var t2 = 0; t2 < 6; t2++) {
+                    var idx = tri[t2];
+                    points.push(pts[idx]);
+                    colors.push(shadeColor(BASE, nrm[idx]));
+                }
+            }
+        }
+    }
+}
+
+/****************************************************
+ * 环面纽结：参数曲线 C(t) = ((R+cos(qt))cos t, (R+cos(qt))sin t, −sin(qt))，
+ * 沿曲线用切向量构造法平面，再扫掠一个半径 r 的圆管。
+ * 取 p=2、q=3，曲线在环面上绕 3 圈、整体绕 2 圈，形成三叶结。
+ ****************************************************/
+function generateTorusKnot()
+{
+    var P = 2, Q = 3, R = 1.35, r = 0.40;
+    var NU = 300, NV = 18;
+    var CA = vec4(0.16, 0.62, 0.70, 1.0), CB = vec4(0.66, 0.34, 0.86, 1.0);
+    var tmax = 2.0 * Math.PI * P;
+
+    function curve(t)
+    {
+        var rr = R + Math.cos(Q * t);
+        // (x, y, z) → (x, z, y)：把曲线的 Z 轴映射为世界 Y 轴
+        return [rr * Math.cos(t), -Math.sin(Q * t), rr * Math.sin(t)];
+    }
+
+    function norm(v)
+    {
+        var l = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) || 1.0;
+        return [v[0] / l, v[1] / l, v[2] / l];
+    }
+    function cross(a, b)
+    {
+        return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    }
+
+    // 先写入临时数组，待整体居中、缩放到与其它模型相当的尺度后再并入 points
+    var tp = [], tc = [];
+
+    for (var i = 0; i < NU; i++) {
+        var t0 = tmax * i / NU, t1 = tmax * (i + 1) / NU;
+        var c0 = curve(t0), c1 = curve(t1);
+        var h = 1e-4;
+        var tan0 = norm([curve(t0 + h)[0] - curve(t0 - h)[0],
+                         curve(t0 + h)[1] - curve(t0 - h)[1],
+                         curve(t0 + h)[2] - curve(t0 - h)[2]]);
+        var ref = Math.abs(tan0[1]) > 0.95 ? [1, 0, 0] : [0, 1, 0];
+        var N0 = norm(cross(tan0, ref));
+        var B0 = cross(tan0, N0);
+        var tan1 = norm([curve(t1 + h)[0] - curve(t1 - h)[0],
+                         curve(t1 + h)[1] - curve(t1 - h)[1],
+                         curve(t1 + h)[2] - curve(t1 - h)[2]]);
+        var ref1 = Math.abs(tan1[1]) > 0.95 ? [1, 0, 0] : [0, 1, 0];
+        var N1 = norm(cross(tan1, ref1));
+        var B1 = cross(tan1, N1);
+
+        for (var j = 0; j < NV; j++) {
+            var f0 = 2.0 * Math.PI * j / NV, f1 = 2.0 * Math.PI * (j + 1) / NV;
+            function ring(cx, cy, cz, Nx, Bx, f)
+            {
+                var cs = Math.cos(f), sn = Math.sin(f);
+                var nx = Nx[0] * cs + Bx[0] * sn,
+                    ny = Nx[1] * cs + Bx[1] * sn,
+                    nz = Nx[2] * cs + Bx[2] * sn;
+                return { p: vec4(cx + nx * r, cy + ny * r, cz + nz * r, 1.0), n: [nx, ny, nz] };
+            }
+            var v00 = ring(c0[0], c0[1], c0[2], N0, B0, f0);
+            var v01 = ring(c0[0], c0[1], c0[2], N0, B0, f1);
+            var v10 = ring(c1[0], c1[1], c1[2], N1, B1, f0);
+            var v11 = ring(c1[0], c1[1], c1[2], N1, B1, f1);
+            var shade = 0.5 + 0.5 * Math.sin(t0);
+            var base = mix(CA, CB, shade);
+            var quad = [v00, v01, v11, v00, v11, v10];
+            for (var k = 0; k < 6; k++) {
+                tp.push(quad[k].p);
+                tc.push(shadeColor(base, quad[k].n));
+            }
+        }
+    }
+
+    /* 居中并缩放到最大跨度 2.6：三叶结的曲线在 x/z 上并不对称，
+     * 若不居中，物体旋转时会绕着一个偏离中心的点甩动。 */
+    var minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, minz = 1e9, maxz = -1e9;
+    for (var m = 0; m < tp.length; m++) {
+        var p = tp[m];
+        if (p[0] < minx) minx = p[0]; if (p[0] > maxx) maxx = p[0];
+        if (p[1] < miny) miny = p[1]; if (p[1] > maxy) maxy = p[1];
+        if (p[2] < minz) minz = p[2]; if (p[2] > maxz) maxz = p[2];
+    }
+    var cx = (minx + maxx) * 0.5, cy = (miny + maxy) * 0.5, cz = (minz + maxz) * 0.5;
+    var span = Math.max(maxx - minx, Math.max(maxy - miny, maxz - minz)) || 1.0;
+    var s = 2.6 / span;
+    for (var m2 = 0; m2 < tp.length; m2++) {
+        points.push(vec4((tp[m2][0] - cx) * s, (tp[m2][1] - cy) * s, (tp[m2][2] - cz) * s, 1.0));
+        colors.push(tc[m2]);
+    }
+}
+
+/****************************************************
+ * 太阳系（层次建模）：
+ *   太阳（原点）→ 地球（绕太阳公转 + 自转）→ 月球（绕地球公转 + 自转）
+ * 轨道线画在 XZ 平面：地球轨道半径 6.0、月球轨道半径 1.5（随地球平移）。
+ * 段顺序仍是【线段】→【三角形】，渲染时分别用 LINES / TRIANGLES 绘制。
+ ****************************************************/
+var solarSegments = null;
+
+function pushCircle(radius, segments, color)
+{
+    for (var i = 0; i < segments; i++) {
+        var a0 = 2.0 * Math.PI * i / segments,
+            a1 = 2.0 * Math.PI * (i + 1) / segments;
+        pushLine(vec4(radius * Math.cos(a0), 0.0, radius * Math.sin(a0), 1.0),
+                 vec4(radius * Math.cos(a1), 0.0, radius * Math.sin(a1), 1.0),
+                 color, color);
+    }
+}
+
+function generateSolarSystem()
+{
+    var ORBIT_COLOR = vec4(0.55, 0.62, 0.72, 0.9);
+
+    solarSegments = {};
+    solarSegments.earthOrbitStart = points.length;
+    pushCircle(6.0, 180, ORBIT_COLOR);
+    solarSegments.earthOrbitCount = points.length - solarSegments.earthOrbitStart;
+
+    solarSegments.moonOrbitStart = points.length;
+    pushCircle(1.5, 90, ORBIT_COLOR);
+    solarSegments.moonOrbitCount = points.length - solarSegments.moonOrbitStart;
+
+    solarSegments.sunStart = points.length;
+    pushUVSphere(1.5, vec4(1.00, 0.72, 0.22, 1.0), 20, 32);
+    solarSegments.sunCount = points.length - solarSegments.sunStart;
+
+    solarSegments.earthStart = points.length;
+    pushUVSphere(0.55, vec4(0.22, 0.48, 0.90, 1.0), 18, 28);
+    solarSegments.earthCount = points.length - solarSegments.earthStart;
+
+    solarSegments.moonStart = points.length;
+    pushUVSphere(0.20, vec4(0.76, 0.77, 0.82, 1.0), 14, 20);
+    solarSegments.moonCount = points.length - solarSegments.moonStart;
+}
+
+/* ==================================================================
+ * 附加项四：齿轮组的层次建模
+ * 三个齿轮都在 XY 平面内绕自己的轴（Z 轴）旋转，按齿数比传递转速：
+ *   主动轮 A(20 齿) → 从动轮 B(15 齿) → 从动轮 C(12 齿)
+ *   ωB = −ωA·NA/NB，ωC = −ωB·NB/NC（相邻齿轮转向相反）
+ * 每个齿轮单独成段，渲染时各自上传自己的模型矩阵，
+ * B 的转角由 A 的转角换算而来、C 的转角由 B 的换算而来，构成父子层次。
+ * ================================================================== */
+var gearSegments = null;        // 各齿轮、轴在顶点缓冲区中的段
+var gearLayout = null;          // 缩放后的轴心位置与齿数
+
+/* 齿轮参数（局部单位）：轴心间距严格等于两轮半径之和，齿才能啮合 */
+var GEAR_SPEC = [
+    { radius: 1.00, teeth: 20, pos: [0.00, 0.00], phase: 0.0,
+      color: [0.74, 0.62, 0.44] },
+    { radius: 0.75, teeth: 15, pos: [1.75, 0.00], phase: Math.PI - Math.PI / 15.0,
+      color: [0.52, 0.63, 0.78] },
+    { radius: 0.60, teeth: 12, pos: [1.35, 1.2894], phase: radians(17.25),
+      color: [0.58, 0.70, 0.52] }
+];
+
+/****************************************************
+ * 生成单个齿轮（中心在原点，轮齿位于 XY 平面，轴向为 Z）：
+ * 每个齿由 4 个轮廓点组成（齿根起 → 齿顶起 → 齿顶落 → 齿根落），
+ * 端面用中心点做三角扇，齿侧与内孔用四边形带，端面法线为 ±Z、
+ * 侧面法线为径向，从而呈现金属齿轮的分面明暗。
+ ****************************************************/
+function generateGear(radius, teeth, thickness, phase, base)
+{
+    var N = teeth,
+        pitch = 2.0 * Math.PI / N,
+        rootR = radius * 0.80,
+        h = thickness * 0.5,
+        hubR = Math.max(radius * 0.20, 0.02),
+        hubH = thickness * 1.2;
+
+    var prof = [];
+    for (var k = 0; k < N; k++) {
+        /* 齿中心严格落在 k·pitch + phase 上，齿槽中心落在 (k+0.5)·pitch + phase 上，
+         * 这样两轮相切方向上的"齿对槽"才能对上，齿轮看上去才真正啮合。 */
+        var b0 = k * pitch + phase;
+        prof.push([rootR,  b0 - 0.30 * pitch]);
+        prof.push([radius, b0 - 0.12 * pitch]);
+        prof.push([radius, b0 + 0.12 * pitch]);
+        prof.push([rootR,  b0 + 0.30 * pitch]);
+    }
+    var P = prof.length;
+
+    function at(i, z) {
+        var rr = prof[i][0], aa = prof[i][1];
+        return vec4(rr * Math.cos(aa), rr * Math.sin(aa), z, 1.0);
+    }
+    function pushV(p, n) {
+        points.push(p);
+        colors.push(shadeColor(base, n));
+    }
+    function pushFace(a, b, c, n) {
+        pushV(a, n); pushV(b, n); pushV(c, n);
+    }
+
+    var nFront = [0, 0, 1], nBack = [0, 0, -1];
+    var cFront = vec4(0, 0, h, 1.0), cBack = vec4(0, 0, -h, 1.0);
+
+    for (var i = 0; i < P; i++) {
+        var j = (i + 1) % P;
+        var f0 = at(i, h), f1 = at(j, h),
+            b0v = at(i, -h), b1v = at(j, -h);
+
+        pushFace(cFront, f0, f1, nFront);            // 前端面
+        pushFace(cBack, b1v, b0v, nBack);            // 后端面
+
+        /* 齿侧：两端点的平均方向作为该面的法线 */
+        var am = 0.5 * (prof[i][1] + prof[j][1]);
+        var nSide = [Math.cos(am), Math.sin(am), 0.0];
+        pushFace(b0v, b1v, f1, nSide);
+        pushFace(b0v, f1, f0, nSide);
+    }
+
+    /* 轮毂与轴：沿 Z 伸出的圆柱，随齿轮一起转（旋转对称，看上去不动） */
+    var HS = 18;
+    for (var s = 0; s < HS; s++) {
+        var a0 = 2.0 * Math.PI * s / HS,
+            a1 = 2.0 * Math.PI * (s + 1) / HS;
+        var n0 = [Math.cos(a0), Math.sin(a0), 0.0],
+            n1 = [Math.cos(a1), Math.sin(a1), 0.0];
+        var q0 = vec4(hubR * n0[0], hubR * n0[1], -hubH, 1.0),
+            q1 = vec4(hubR * n1[0], hubR * n1[1], -hubH, 1.0),
+            q2 = vec4(hubR * n1[0], hubR * n1[1],  hubH, 1.0),
+            q3 = vec4(hubR * n0[0], hubR * n0[1],  hubH, 1.0);
+        pushV(q0, n0); pushV(q1, n1); pushV(q2, n1);
+        pushV(q0, n0); pushV(q2, n1); pushV(q3, n0);
+
+        var hc0 = vec4(0, 0, hubH, 1.0), hc1 = vec4(0, 0, -hubH, 1.0);
+        pushFace(hc0, q3, q2, nFront);
+        pushFace(hc1, q1, q0, nBack);
+    }
+}
+
+/****************************************************
+ * 生成整套齿轮组：先按局部坐标求包围盒，整体居中并缩放到最大跨度 2.6，
+ * 与其它模型的尺度保持一致；每个齿轮各记录一段，供渲染时分段上传矩阵。
+ ****************************************************/
+function generateGearTrain()
+{
+    var minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9;
+    for (var i = 0; i < GEAR_SPEC.length; i++) {
+        var g = GEAR_SPEC[i];
+        minx = Math.min(minx, g.pos[0] - g.radius);
+        maxx = Math.max(maxx, g.pos[0] + g.radius);
+        miny = Math.min(miny, g.pos[1] - g.radius);
+        maxy = Math.max(maxy, g.pos[1] + g.radius);
+    }
+    var cx = (minx + maxx) * 0.5, cy = (miny + maxy) * 0.5;
+    var span = Math.max(maxx - minx, maxy - miny) || 1.0;
+    var s = 2.6 / span;
+
+    gearSegments = { gears: [] };
+    gearLayout = { scale: s, pos: [], teeth: [] };
+
+    for (var k = 0; k < GEAR_SPEC.length; k++) {
+        var spec = GEAR_SPEC[k];
+        var start = points.length;
+        generateGear(spec.radius * s, spec.teeth, 0.22 * s, spec.phase,
+                     vec4(spec.color[0], spec.color[1], spec.color[2], 1.0));
+        gearSegments.gears.push({ start: start, count: points.length - start });
+        gearLayout.pos.push([(spec.pos[0] - cx) * s, (spec.pos[1] - cy) * s]);
+        gearLayout.teeth.push(spec.teeth);
+    }
+}
+
+
+
 
 
