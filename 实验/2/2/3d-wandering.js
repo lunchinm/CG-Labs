@@ -18,15 +18,24 @@ var modelTrans = vec3(0,0,0);  // 累积平移向量（方向键、侧栏数字�
 
 var theta = 45.0;              // 相机方位角 θ（绕 Y 轴，单位：度）
 var phi = 54.7356;             // 相机仰角 φ（相对 +Y 轴，单位：度）
-var camRadius = 9.0;           // 相机到原点的距离（Shift+滚轮 / 侧栏滑块调节）
+var camRadius = 15.5;          // 相机到原点的距离（Ctrl+滚轮 / 侧栏滑块调节）
 var isOrth = true;             // 投影方式：true=正交，false=透视
 var fov = 60.0;                // 透视投影视野角（度）
 
+/* 相机的 up 向量。
+ *   null      —— 由 (θ, φ) 的球面公式解析给出，此时画面不滚转、地平线水平；
+ *   [x,y,z]   —— W/S、A/D 做"严格绕世界轴"的刚性旋转时，eye 与 up 一起被旋转，
+ *                旋转后的 up 一般不再等于球面公式的结果（这正是画面发生滚转的原因），
+ *                故用这个向量覆盖，直到用户重新设定 (θ, φ)（滑块、预设、右键拖动、复位）。 */
+var camUp = null;
+
+var MODEL_SCALE_MIN = 0.2;     // 物体缩放下限
+var MODEL_SCALE_MAX = 10.0;    // 物体缩放上限（Z/C、滚轮、侧栏滑块共用）
+
 var leftDragMode = 'rotate';   // 鼠标左键功能：'rotate'=旋转物体 / 'translate'=平移物体（中键切换）
 
-var showGrid = true;           // 显示：地面网格
 var showAxes = true;           // 显示：坐标轴
-var showLabels = true;         // 显示：轴标签
+var showLabels = true;         // 显示：角落 gizmo 内的 X/Y/Z 标识
 var showGizmo = true;          // 显示：角落朝向 gizmo
 
 var ModelMatrix;               // 模型变换矩阵
@@ -42,18 +51,32 @@ var objStart = 0;              // 物体段起始下标
 var objCount = 0;              // 物体段顶点数
 
 // 场景中的默认观察参数
+// 默认相机距离与默认 fov 满足 r·tan(fov/2) = 15.5·tan30° ≈ 8.95 = 正交 halfV，
+// 因此默认状态下正交与透视覆盖同样的世界高度，切换投影时画面尺度不跳变
 var DEFAULT_THETA = 45.0,
     DEFAULT_PHI = 54.7356,
-    DEFAULT_RADIUS = 9.0,
+    DEFAULT_RADIUS = 15.5,
     DEFAULT_FOV = 60.0;
 
-// 正交投影的竖向半高：需覆盖 ±6 的地面网格。等轴视角下网格竖向跨度约 ±4.9、
-// 横向约 ±8.5，竖向取 6.5 可在常见宽高比（≥1.3）下把整块网格完整收入画面，
-// 并留出一点边距（俯视图时网格正好填满 ±6，取 6.5 避免最外圈格线贴在画布边缘被切）。
-var ORTHO_HALF_V = 6.5;
+/* 正交投影的竖向半高：它决定"画面里能看见多大的世界范围"。
+ * 必须以相机参数动态给出，否则平行投影下"沿视线方向平移观察者不改变成像"，
+ * Ctrl+滚轮推拉相机距离、相机距离滑块与视野角滑块在正交模式下就全都看不出变化。
+ * 取
+ *     halfV = camRadius · tan(fov/2)
+ * 即正交视见体在"过原点的对焦平面"上覆盖的世界高度与透视投影完全一致：
+ *   1) 推拉相机距离 = 正交下缩放画面（滚轮推拉的常见观感）；
+ *   2) 调视野角 = 正交下同样缩放画面；
+ *   3) 正交 ⇄ 透视切换时画面尺度不跳变。
+ * 默认 15.5·tan30° ≈ 8.95：坐标轴半轴长 18.0 约为其 2 倍，
+ * 轴端伸出画布，成为贯穿全屏的空间参照。 */
+function orthoHalfV(){
+    var h = camRadius * Math.tan(radians(fov * 0.5));
+    return Math.max(0.3, Math.min(200.0, h));   // 防止 fov 取到 5/170 时退化
+}
 
 // 视图预设（前/后/左/右/上/下/等轴测）
-// 等轴测取 θ=45°、φ=arctan(√2)=54.7356°、r=9，eye=(5.196,5.196,5.196)，
+// 等轴测取 θ=45°、φ=arctan(√2)=54.7356°，视线方向恒为 (0.5774,0.5774,0.5774)
+//（r=DEFAULT_RADIUS=15.5 时 eye=(8.95,8.95,8.95)），
 // 此时三根正向轴在屏幕上恰好等长且互成 120°，+Y 竖直向上、+X 指向右下、+Z 指向左下。
 var VIEW_PRESETS = {
     front:  { theta:   0.0, phi:  90.0 },
@@ -68,7 +91,7 @@ var VIEW_PRESETS = {
 /* ***********窗口加载时调用:程序环境初始化程序****************** */
 window.onload = function() {
     canvas = document.getElementById("canvas");
-    gl = canvas.getContext('webgl2', { antialias: true });  // 显式开启多重采样抗锯齿，轴/网格细线与模型轮廓更平滑
+    gl = canvas.getContext('webgl2', { antialias: true });  // 显式开启多重采样抗锯齿，坐标轴线与模型轮廓更平滑
     if ( !gl ) { alert( "WebGL isn't available" ); return; }
 
     program = initShaders( gl, "shaders/3d-wandering.vert", "shaders/3d-wandering.frag" );
@@ -96,13 +119,13 @@ window.onload = function() {
     resizeCanvas();
 
     /* 开启深度缓存，以正确渲染物体被遮挡部分，3D显示必备；
-     * 深度函数取 LEQUAL：坐标轴/网格与物体深度相等时（如轴与网格都位于 y=0 平面）
-     * 后绘制者胜出，从而让彩色坐标轴覆盖住网格的中心线，且避免 z-fighting。 */
+     * 深度函数取 LEQUAL：坐标轴与物体深度相等时后绘制者胜出，
+     * 且能避免同一平面上的共面几何出现 z-fighting。 */
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
 
-    /* 开启混合，使顶点色携带的 alpha 生效：
-     * 地面网格按"到原点距离"写入逐线 alpha，配合混合即可实现边缘淡出。 */
+    /* 开启混合，使顶点色携带的 alpha 生效
+     * （当前各顶点色 alpha 均为 1.0，保留该设置以便后续扩展半透明效果）。 */
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -116,7 +139,7 @@ window.onload = function() {
     initUI();
     initPointerInteraction();
 
-    // 构建场景：坐标轴 → 地面网格 → 角落 gizmo → 物体（顺序固定）
+    // 构建场景：坐标轴 → 角落 gizmo → 物体（顺序固定）
     buildScene(currentModel);
 
     // 调用绘制函数进行渲染
@@ -144,20 +167,20 @@ window.onkeydown = function(e){
 
     switch (e.keyCode) {
         case 90:    // Z-物体整体放大
-            modelScale *= 1.1;
+            modelScale = Math.min(MODEL_SCALE_MAX, modelScale * 1.1);
             break;
         case 67:    // C-物体整体缩小
-            modelScale *= 0.9;
+            modelScale = Math.max(MODEL_SCALE_MIN, modelScale * 0.9);
             break;
 
         /* ===== W/S/A/D：按住持续平滑旋转相机 =====
          * 旧实现每收到一次按键事件就整步跳 5°，受操作系统"先延迟后定频重复"的
          * 影响，画面必然一顿一顿。现在 keydown 只负责"置位 + 启动动画循环"，
          * 真正的角度累加交给 camAnimFrame() 按真实时间步长连续完成。 */
-        case 87:    // W-视线方向绕世界 X 轴旋转（相机向 +Y 升起）
+        case 87:    // W-相机严格绕世界 X 轴旋转（抬升）
             cameraKey.w = true; startCameraAnim();
             break;
-        case 83:    // S-视线方向绕世界 X 轴反向旋转（相机向 -Y 落下）
+        case 83:    // S-相机严格绕世界 X 轴旋转（降低）
             cameraKey.s = true; startCameraAnim();
             break;
         case 65:    // A-相机绕世界 Y 轴顺时针旋转（θ 减小）
@@ -244,10 +267,10 @@ function camAnimFrame(now){
     camAnimLast = now;
     var step = CAMERA_ROT_SPEED * dt;             // 本帧应转过的角度
 
-    if (cameraKey.w) pitchCameraAboutWorldX(-step);   // W 与 S 反向
-    if (cameraKey.s) pitchCameraAboutWorldX( step);
-    if (cameraKey.a) theta -= step;                   // A 与 D 反向（改 θ 即绕世界 Y 轴的旋转）
-    if (cameraKey.d) theta += step;
+    if (cameraKey.w) rotateCameraAboutWorldX(-step);   // W 绕世界 X 轴正向抬升相机
+    if (cameraKey.s) rotateCameraAboutWorldX( step);   // S 反向
+    if (cameraKey.a) rotateCameraAboutWorldY(-step);   // A 绕世界 Y 轴旋转
+    if (cameraKey.d) rotateCameraAboutWorldY( step);   // D 反向
 
     clampCamera();
     syncUI();
@@ -260,19 +283,15 @@ function camAnimFrame(now){
     }
 }
 
-/* 把"视线方向"绕世界 X 轴旋转 angleDeg 度，再反算回球坐标 (θ, φ)。
- * 世界 X 轴的标准右手旋转公式：R_x(a)·v = (v0, v1·cos a − v2·sin a, v1·sin a + v2·cos a)。
- * up 向量随后由新的 (θ, φ) 按球面框架重新生成，因此相机不会累积滚转，地平线始终水平。
- * 注意：只有 θ = 0/180（前/后视图）时绕世界 X 轴才等价于"只改 φ"；
- *       一般方位角下绕世界 X 轴会同时让 θ 漂移，这正是"真正绕 X 轴"应有的表现。 */
-function pitchCameraAboutWorldX(angleDeg){
-    var d = eyeDirection(theta, phi);
-    var c = Math.cos(radians(angleDeg)), s = Math.sin(radians(angleDeg));
-    var y = d[1] * c - d[2] * s;      // 旋转后的 Y 分量
-    var z = d[1] * s + d[2] * c;      // 旋转后的 Z 分量
-    phi   = Math.acos(Math.max(-1.0, Math.min(1.0, y))) * 180.0 / Math.PI;
-    theta = Math.atan2(d[0], z) * 180.0 / Math.PI;   // θ 由新的 (x, z) 反算
-}
+/* 说明：W/S 采用"严格绕世界 X 轴"的刚性旋转——把 eye 与 up 一起用 R_x(±Δ) 旋转。
+ * 关键点是 up 必须同步旋转：如果只把视线方向绕世界 X 轴转、而让 up 仍由球面公式
+ * 按新的 (θ, φ) 重新生成，两者就不自洽，等效转动轴会漂移成一根斜轴
+ * （等轴视角下实测约 [−0.61, 0.54, 0.59]），观感即"类似地球自转"，这是本程序
+ * 早期版本的问题。现在 up 与 eye 作为刚体同步旋转，转动轴严格等于世界 X 轴。
+ * 代价是画面会产生滚转（世界 X 轴在屏幕上保持不动、其余景物绕它倾斜），
+ * 这是"绕世界 X 轴旋转相机"必然的几何结果；"地平线恒水平"只在 θ=0°/180°
+ * （前/后视图，视线位于 YZ 平面内）时才与它重合。
+ * 一旦用户改用滑块、视图预设或右键拖动重新给定 (θ, φ)，camUp 即被清空、回到无滚转姿态。 */
 
 /* 把相机极坐标参数限制在合法范围内（θ 环绕到 [-180,180)，φ 截断到 [0,180]） */
 function clampCamera(){
@@ -304,16 +323,10 @@ function render(){
     gl.depthMask( true );
     gl.drawArrays( gl.TRIANGLES, objStart, objCount );
 
-    /* ---------- pass2：地面网格 + 三色坐标轴（不写深度，被物体正确遮挡）----------
-     * 顺序：先网格、后坐标轴。二者都位于 y=0 平面且都不写深度，
-     * 因此后绘制的坐标轴会覆盖住网格在 x=0 / z=0 处的中心线，
-     * 避免"轴只到 ±2 而网格到 ±3"时中心出现视觉空洞与双线。 */
+    /* ---------- pass2：三色坐标轴（不写深度，被物体正确遮挡）---------- */
     gl.uniform1i( u_Flag, 0 );   // 标志位=0，只用 P·V 绘制，不做模型变换
     gl.depthMask( false );
 
-    if (showGrid) {
-        gl.drawArrays( gl.LINES, axisVertexCount, gridVertexCount );
-    }
     if (showAxes) {
         // 轴段内先线段后三角形（圆锥箭头），两种图元必须分两次调用
         gl.drawArrays( gl.LINES, 0, axisLineCount );
@@ -322,7 +335,7 @@ function render(){
     gl.depthMask( true );
 
     /* ---------- pass3：角落朝向 gizmo（独立小视口 + 独立相机）---------- */
-    var gizmoStart = axisVertexCount + gridVertexCount;
+    var gizmoStart = axisVertexCount;
     if (showGizmo) {
         drawGizmo( gizmoStart );
         // 小视口绘制完毕后恢复主视图的三个变换矩阵与 viewport
@@ -333,9 +346,9 @@ function render(){
         gl.uniform1i( u_Flag, 1 );
     }
 
-    // 每帧把参数写回界面与状态栏，并更新轴标签位置
+    // 每帧把参数写回界面与状态栏，并更新角落 gizmo 的 X/Y/Z 标识位置
     syncUI();
-    updateAxisLabels();
+    updateGizmoLabels();
 }
 
 /* 在视口右上角的小方形区域内绘制朝向 gizmo：
@@ -373,6 +386,7 @@ function initViewingParameters(){
     modelTrans = vec3(0,0,0);   // 附加项：累积平移复位为零向量
     theta = DEFAULT_THETA;
     phi = DEFAULT_PHI;
+    resetCamUp();               // up 回到球面基准（清掉 W/S 留下的滚转）
     camRadius = DEFAULT_RADIUS;
     isOrth = true;
     fov = DEFAULT_FOV;
@@ -402,8 +416,8 @@ function SendData(){
 }
 
 /****************************************************************
-* 构建场景顶点数据：固定按"坐标轴 → 地面网格 → 角落 gizmo → 物体"的顺序，
-* 段计数（axisVertexCount / gridVertexCount / gizmoVertexCount）由生成函数填写，
+* 构建场景顶点数据：固定按"坐标轴 → 角落 gizmo → 物体"的顺序，
+* 段计数（axisVertexCount / gizmoVertexCount）由生成函数填写，
 * 物体段的起始下标与顶点数在此处记录，供 render() 分段绘制使用。
 ******************************************************************/
 function buildScene(model){
@@ -411,7 +425,6 @@ function buildScene(model){
     colors = [];
 
     generateAxes();    // 三色坐标轴 + 圆锥箭头（段计数：axisVertexCount/axisLineCount）
-    generateGrid();    // 地面主次网格 + 距离淡出（段计数：gridVertexCount）
     generateGizmo();   // 角落朝向 gizmo（段计数：gizmoVertexCount/gizmoLineCount）
 
     objStart = points.length;
@@ -468,23 +481,66 @@ function eyePosition(radius){
     return vec3(radius * d[0], radius * d[1], radius * d[2]);
 }
 
-/* 求与视线方向恒不共线的 up 向量：
+/* 由球面极坐标求"与视线方向恒正交"的 up 向量（无滚转基准）：
  * 取球坐标框架中"仰角增大方向"的反向单位向量，
  * 该向量恒为单位向量且恒垂直于 eye（点积恒为 0），
  * 因此在 φ = 0/180（视线沿 Y 轴）时也不会与观察方向共线退化。
  */
-function upVector(){
+function sphericalUp(){
     return vec3(-Math.cos(radians(phi)) * Math.sin(radians(theta)),
-                Math.sin(radians(phi)),
+                 Math.sin(radians(phi)),
                 -Math.cos(radians(phi)) * Math.cos(radians(theta)));
+}
+
+/* 实际用于 lookAt 的 up：有刚性旋转残留时用 camUp，否则用球面公式 */
+function upVector(){
+    if (camUp) return vec3(camUp[0], camUp[1], camUp[2]);
+    return sphericalUp();
+}
+
+/* 重新由 (θ, φ) 定义相机姿态：清掉滚转，up 回到球面基准。
+ * 所有"直接设定 θ / φ"的入口（滑块、视图预设、右键拖拽、复位）都要调用它。 */
+function resetCamUp(){
+    camUp = null;
+}
+
+/* 把 (θ, φ) 反算回角度：φ 由 +Y 分量决定，θ 由 x/z 决定（与 eyeDirection() 互逆） */
+function setFromEyeDir(d){
+    var y = Math.max(-1.0, Math.min(1.0, d[1]));
+    phi   = Math.acos(y) * 180.0 / Math.PI;
+    theta = Math.atan2(d[0], d[2]) * 180.0 / Math.PI;
+}
+
+/* 严格绕世界 X 轴旋转相机（W/S）：eye 与 up 作为刚体一起转，
+ * 两者的夹角恒为 90°，因此不会出现 up 与视线共线的退化。
+ * 注意：这样做画面会产生滚转——世界 X 轴本身是转轴，在屏幕上保持不动，
+ * 其余景物绕它倾斜；这正是"相机绕世界 X 轴旋转"的几何结果。 */
+function rotateCameraAboutWorldX(deg){
+    var c = Math.cos(radians(deg)), s = Math.sin(radians(deg));
+    var e = eyeDirection(theta, phi), u = upVector();
+    var e2 = vec3(e[0], e[1] * c - e[2] * s, e[1] * s + e[2] * c);
+    var u2 = vec3(u[0], u[1] * c - u[2] * s, u[1] * s + u[2] * c);
+    setFromEyeDir(e2);
+    camUp = u2;
+}
+
+/* 严格绕世界 Y 轴旋转相机（A/D），做法同上；此时不产生滚转，
+ * 结果与"只改 θ"完全等价，保留下来的意义是与 W/S 共用同一套刚性旋转逻辑。 */
+function rotateCameraAboutWorldY(deg){
+    var c = Math.cos(radians(deg)), s = Math.sin(radians(deg));
+    var e = eyeDirection(theta, phi), u = upVector();
+    var e2 = vec3(e[0] * c + e[2] * s, e[1], -e[0] * s + e[2] * c);
+    var u2 = vec3(u[0] * c + u[2] * s, u[1], -u[0] * s + u[2] * c);
+    setFromEyeDir(e2);
+    camUp = u2;
 }
 
 function formViewMatrix(){
 //===================TODO3：生成物体的视点变换矩阵V=======================
 /***提示1：观察者（eye）的位置计算***************************************
 *观察者（eye）的位置是在绕X和Y轴转动，可以认为是在球面运动，可使用极坐标参数化表示。
-*极坐标参数半径 radius 由全局量 camRadius 给出（Shift+滚轮/侧栏滑块可调，范围 2~40），
-*因为物体坐标范围约 [-1,1]、地面网格到 ±6，radius 需作为视距把整个场景纳入视见体。
+*极坐标参数半径 radius 由全局量 camRadius 给出（Ctrl+滚轮/侧栏滑块可调，范围 2~40），
+*因为物体坐标范围约 [-1,1]，radius 需作为视距把物体纳入视见体。
 *极坐标参数theta和phi是交互界面中控制，
 *三角函数需要用到Math库，MVnew.js提供的函数radians将三角函数中的角度值转换为弧度值。
 ************************************************************************/
@@ -495,9 +551,10 @@ function formViewMatrix(){
     /* eye 的球面参数化：
      *   eye = r*( sin(phi)*sin(theta), cos(phi), sin(phi)*cos(theta) )
      * 默认 theta=45°、phi=54.7356° 时为等轴测视角（正象限上方斜看原点）；
-     * 只改变 theta 时 eye 在 XZ 平面内转动，即相机绕世界 Y 轴旋转，对应 A/D；
-     * W/S 则通过 pitchCameraAboutWorldX() 把视线方向严格绕世界 X 轴旋转后再反算 (θ, φ)，
-     * 因此不会出现"绕一个不存在的斜轴转动"的观感。
+     * 只改变 θ 时 eye 在 XZ 平面内转动，即相机绕世界 Y 轴旋转，对应 A/D；
+     * W/S 不在这里"只改 φ"，而是在 camAnimFrame() 里用 rotateCameraAboutWorldX()
+     * 把 eye 与 up 作为刚体一起绕世界 X 轴旋转（因此转动轴严格是世界 X 轴，
+     * 画面会产生相应的滚转）；up 取 upVector()，刚性旋转后由 camUp 覆盖。
      */
     return lookAt(eyePosition(camRadius), vec3(0.0,0.0,0.0), upVector()); //lookAt是/common/MVnew.js中的已经写好的函数
 };
@@ -516,21 +573,24 @@ function formProjectMatrix(aspect){
 	//注意2：因为参数top是js的保留字，所以这里的参数改名为ytop
 	//注意3：设置的视见体参数需要考虑将场景中的景物包含进去。
     /* 视见体参数取值说明：
-     * 景物质点离原点的最远距离约 8.5（±6 网格的角点），相机在半径 camRadius 的球面上，
-     * at 为原点，故透视投影下景物位于观察坐标系 -Z 方向约 camRadius-8.5 ~ camRadius+8.5 处，
-     * near 取 0.5、far 取 200 可把所有取值（camRadius 范围 2~40）都包含进来。
-     * 正交投影竖向视野固定为 ±ORTHO_HALF_V，横向随纵横比 aspect = 画布宽/高 变化；
-     * 平行投影下"沿视线方向平移观察者并不改变成像"，因此 near/far 只需保证场景不被裁掉：
+     * 物体顶点离原点最远约 10（球半径 1.0 再乘最大缩放 10.0），相机在半径 camRadius 的球面上，
+     * at 为原点，故透视投影下物体位于观察坐标系 -Z 方向约 camRadius-10 ~ camRadius+10 处，
+     * near 取 0.5、far 取 200 可把所有取值（camRadius 范围 2~40）都包含进来；
+     * 只有"物体放大到接近上限、同时把相机推到最近 2"时物体会穿过近平面，这属于透视下的正常裁剪。
+     * 正交投影竖向视野为 ±orthoHalfV()（= camRadius·tan(fov/2)，随相机距离与视野角变化，
+     * 使两个相机滑块与 Ctrl+滚轮在正交下同样有效），横向随纵横比 aspect = 画布宽/高 变化；
+     * 平行投影下"沿视线方向平移观察者并不改变成像"，因此 near/far 只需保证物体不被裁掉：
      * 取 near = -200 / far = 200（视见体在观察者前后各伸出 200），
-     * 这样即使相机距离调到最小值也不会出现近平面切掉网格靠后部分的缺角。 */
+     * 这样即使相机距离调到最小值也不会出现近平面切掉物体的缺角。 */
     const near = 0.5;
     const far  = 200.0;
     const halfDepth = 200.0;   // 正交：视见体沿视线方向向观察者前后各伸出的深度
 
     // 由 isOrth 标志位切换正投影/透视投影
     if (isOrth) {
-        return ortho(-ORTHO_HALF_V * aspect, ORTHO_HALF_V * aspect,
-                     -ORTHO_HALF_V, ORTHO_HALF_V,
+        var halfV = orthoHalfV();
+        return ortho(-halfV * aspect, halfV * aspect,
+                     -halfV, halfV,
                      -halfDepth, halfDepth);
     } else {
         return perspective(fov, aspect, near, far); // fov 为视野角（度），MVnew内部已转为弧度
@@ -550,10 +610,6 @@ function initUI(){
     document.querySelectorAll('#segModel button').forEach(function(btn){
         bindClick(btn, function(){ modelChange(btn.dataset.model); });
     });
-    /* 侧栏：模型单选项（与工具栏同源） */
-    document.querySelectorAll('input[name=model]').forEach(function(radio){
-        radio.addEventListener('change', function(){ modelChange(radio.value); });
-    });
 
     /* 工具栏：视图预设 */
     document.querySelectorAll('#segView button').forEach(function(btn){
@@ -569,8 +625,8 @@ function initUI(){
     });
 
     /* 侧栏：相机与物体变换滑块 */
-    bindRange('rngTheta',  function(v){ theta = v; });
-    bindRange('rngPhi',    function(v){ phi = v; });
+    bindRange('rngTheta',  function(v){ theta = v; resetCamUp(); });
+    bindRange('rngPhi',    function(v){ phi = v;   resetCamUp(); });
     bindRange('rngFov',    function(v){ fov = v; });
     bindRange('rngRadius', function(v){ camRadius = v; });
     bindRange('rngScale',  function(v){ modelScale = v; });
@@ -584,7 +640,6 @@ function initUI(){
     });
 
     /* 侧栏：显示开关 */
-    bindCheck('chkGrid',   function(v){ showGrid = v; });
     bindCheck('chkAxes',   function(v){ showAxes = v; });
     bindCheck('chkLabels', function(v){ showLabels = v; });
     bindCheck('chkGizmo',  function(v){ showGizmo = v; });
@@ -624,6 +679,7 @@ function setView(name){
     if (!preset) return;
     theta = preset.theta;
     phi = preset.phi;
+    resetCamUp();               // 预设是"无滚转"的标准视角
     clampCamera();
     syncUI();
     render();
@@ -646,11 +702,6 @@ function syncUI(){
     document.getElementById('stProjection').textContent = isOrth ? '正交' : '透视';
     document.getElementById('btnProjLabel').textContent = isOrth ? '投影：正交' : '投影：透视';
 
-    document.getElementById('stTheta').textContent  = theta.toFixed(0) + '°';
-    document.getElementById('stPhi').textContent    = phi.toFixed(1) + '°';
-    document.getElementById('stFov').textContent    = fov.toFixed(0) + '°';
-    document.getElementById('stRadius').textContent = camRadius.toFixed(1);
-
     document.getElementById('valTheta').textContent  = theta.toFixed(0) + '°';
     document.getElementById('valPhi').textContent    = phi.toFixed(1) + '°';
     document.getElementById('valFov').textContent    = fov.toFixed(0) + '°';
@@ -661,15 +712,14 @@ function syncUI(){
     document.getElementById('rngPhi').value    = phi;
     document.getElementById('rngFov').value    = fov;
     document.getElementById('rngRadius').value = camRadius;
-    document.getElementById('rngScale').value  = Math.max(0.2, Math.min(3.0, modelScale));
+    document.getElementById('rngScale').value  = Math.max(MODEL_SCALE_MIN, Math.min(MODEL_SCALE_MAX, modelScale));
 
     var modelName = { cube: '方块', sphere: '球', hat: '墨西哥帽' }[currentModel] || currentModel;
     document.getElementById('stModel').textContent = modelName;
     document.getElementById('stTrans').textContent =
         '(' + modelTrans[0].toFixed(1) + ', ' + modelTrans[1].toFixed(1) + ', ' + modelTrans[2].toFixed(1) + ')';
-    document.getElementById('stScale').textContent = modelScale.toFixed(2);
 
-    /* 左键功能（中键切换）：视口徽标 + 状态栏 + 侧栏操作说明三处同步 */
+    /* 左键功能（中键切换）：视口徽标 + 状态栏两处同步 */
     var isRotateMode = (leftDragMode === 'rotate');
     document.getElementById('stLeftMode').textContent = isRotateMode ? '旋转' : '平移';
     document.getElementById('modeBadge').textContent =
@@ -678,12 +728,14 @@ function syncUI(){
 
     document.getElementById('rotInfo').textContent = rotationInfo();
 
-    /* 同步模型选择（工具栏分段按钮 + 侧栏单选） */
+    /* 平移数字框跟随 modelTrans 实时回显（左键平移、方向键、归零都会经过这里）。
+     * 必须放在 syncUI() 里而不是只在初始化时写一次，否则拖动平移时
+     * 侧栏数字框会一直停在旧值，看起来像"平移量没有变化"。 */
+    updateTransInputs();
+
+    /* 同步模型选择（工具栏分段按钮） */
     document.querySelectorAll('#segModel button').forEach(function(btn){
         btn.classList.toggle('active', btn.dataset.model === currentModel);
-    });
-    document.querySelectorAll('input[name=model]').forEach(function(radio){
-        radio.checked = (radio.value === currentModel);
     });
 
     /* 同步视图预设高亮：当前方向不落在任何预设上时全部取消高亮 */
@@ -702,53 +754,65 @@ function rotationInfo(){
     return '已旋转 ' + angle.toFixed(1) + '°';
 }
 
-/* 把平移数字框写回全局值（复位时使用） */
+/* 把平移数字框写回全局值（syncUI() 每帧调用，复位时同样经过这里）。
+ * 正在该输入框里手动输入时不回写，否则写到一半的 "1." "-" 之类会被格式化打断。 */
 function updateTransInputs(){
-    document.getElementById('numTx').value = modelTrans[0].toFixed(1);
-    document.getElementById('numTy').value = modelTrans[1].toFixed(1);
-    document.getElementById('numTz').value = modelTrans[2].toFixed(1);
+    var ids = ['numTx', 'numTy', 'numTz'];
+    for (var i = 0; i < 3; i++) {
+        var el = document.getElementById(ids[i]);
+        if (document.activeElement === el) continue;
+        el.value = modelTrans[i].toFixed(1);
+    }
 }
 
 
 /* ==================================================================
- * 轴标签：把世界点经 P·V 投影到屏幕像素，用 HTML 覆盖层呈现（矢量清晰）
+ * 角落 gizmo 的 X/Y/Z 标识
+ * 主视口的坐标轴已放大到半轴长 18.0（轴端落在画面之外），因此不再在主画面
+ * 标注 X/Y/Z，而是把标识放进右上角 gizmo 的小方框里：与 gizmo 本身共用
+ * "只随相机旋转、不平移"的视图矩阵和同一套正交投影，逐帧把三条轴的端点
+ * 投影成框内像素坐标。
  * ================================================================== */
-var AXIS_LABEL_LENGTH = 4.0;   // 与 generateAxes() 中的半轴长保持一致
-var AXIS_LABEL_GAP    = 0.45;  // 标签相对轴端的额外外移量（避开圆锥箭头的尖端）
+var GIZMO_ORTHO_HALF = 0.72;   // 与 drawGizmo() 中 ortho(±0.72) 保持一致
+var GIZMO_BOX        = 96;     // 小视口边长（px），与 CSS 的 #gizFrame 同尺寸
+var GIZMO_BORDER     = 1;      // #gizFrame 的边框宽：绝对定位的子元素从内边距盒起算
+var GIZMO_LABEL_L    = 0.70;   // 标识所在的世界半径：略超出 gizmo 轴端 0.6
+var GIZMO_LABEL_PAD  = 8;      // 标识中心到框边的安全留白（px）
 
-function projectToScreen(p){
-    /* 先把世界点变换到观察坐标系，判断它是否位于相机前方。
-     * 正交投影下 clip.w 恒为 1，仅靠 w 无法识别"相机后方"的点；
-     * 而相机距离最小可到 1.5，比轴端 2.16 还近，因此必须显式判断。
-     * ViewMatrix 第 3 行即"由 at 指向 eye"的单位向量，故 z_eye < 0 表示点在相机前方。*/
-    var eyeZ = ViewMatrix[2][0] * p[0] + ViewMatrix[2][1] * p[1] +
-               ViewMatrix[2][2] * p[2] + ViewMatrix[2][3];
-    if (eyeZ >= -1e-6) return null;
-
-    var clip = mult(mult(ProjectionMatrix, ViewMatrix), vec4(p[0], p[1], p[2], 1.0));
-    if (clip[3] <= 1e-6) return null;             // 透视投影下位于相机后方或退化时不显示
-    var ndcX = clip[0] / clip[3];
-    var ndcY = clip[1] / clip[3];
-    return {
-        x: (ndcX * 0.5 + 0.5) * canvas.width,
-        y: (1.0 - (ndcY * 0.5 + 0.5)) * canvas.height  // NDC 向上，屏幕像素向下
-    };
-}
-
-function updateAxisLabels(){
+function updateGizmoLabels(){
     var labs = [
-        { el: document.getElementById('axisLabelX'), p: vec3(AXIS_LABEL_LENGTH + AXIS_LABEL_GAP, 0.0, 0.0) },
-        { el: document.getElementById('axisLabelY'), p: vec3(0.0, AXIS_LABEL_LENGTH + AXIS_LABEL_GAP, 0.0) },
-        { el: document.getElementById('axisLabelZ'), p: vec3(0.0, 0.0, AXIS_LABEL_LENGTH + AXIS_LABEL_GAP) }
+        { el: document.getElementById('gizLabelX'), p: vec3(GIZMO_LABEL_L, 0.0, 0.0) },
+        { el: document.getElementById('gizLabelY'), p: vec3(0.0, GIZMO_LABEL_L, 0.0) },
+        { el: document.getElementById('gizLabelZ'), p: vec3(0.0, 0.0, GIZMO_LABEL_L) }
     ];
+    var show = showGizmo && showLabels;   // gizmo 关掉时框内没有轴线，标识一并隐藏
+    var PV = mult(
+        ortho(-GIZMO_ORTHO_HALF, GIZMO_ORTHO_HALF, -GIZMO_ORTHO_HALF, GIZMO_ORTHO_HALF, 0.1, 10.0),
+        formGizmoViewMatrix());
+
     for (var i = 0; i < labs.length; i++) {
         var el = labs[i].el;
-        if (!showLabels) { el.style.display = 'none'; continue; }
-        var s = projectToScreen(labs[i].p);
-        if (!s) { el.style.display = 'none'; continue; }
+        if (!show) { el.style.display = 'none'; continue; }
+
+        var q = labs[i].p;
+        var clip = mult(PV, vec4(q[0], q[1], q[2], 1.0));
+        var ndcZ = clip[2] / clip[3];
+        // 指向相机背后的轴会被近平面裁掉，其标识也随之隐藏（与 WebGL 的裁剪一致）
+        if (clip[3] <= 1e-6 || ndcZ < -1.0 || ndcZ > 1.0) { el.style.display = 'none'; continue; }
+
+        var ndcX = clip[0] / clip[3];
+        var ndcY = clip[1] / clip[3];
+        // 小视口是 96px，而 #gizFrame 有 1px 边框、子元素从内边距盒起算 94px，
+        // 因此先映射到内边距盒再补上边框宽度，标识与 WebGL 画出的轴端严格对齐
+        var inner = GIZMO_BOX - 2 * GIZMO_BORDER;
+        var px = GIZMO_BORDER + (ndcX * 0.5 + 0.5) * inner;
+        var py = GIZMO_BORDER + (1.0 - (ndcY * 0.5 + 0.5)) * inner;  // NDC 向上，屏幕像素向下
+
         el.style.display = 'block';
-        el.style.left = s.x + 'px';
-        el.style.top  = s.y + 'px';
+        el.style.left = Math.max(GIZMO_LABEL_PAD,
+                                 Math.min(GIZMO_BOX - GIZMO_LABEL_PAD, px)) + 'px';
+        el.style.top  = Math.max(GIZMO_LABEL_PAD,
+                                 Math.min(GIZMO_BOX - GIZMO_LABEL_PAD, py)) + 'px';
     }
 }
 
@@ -759,7 +823,7 @@ function updateAxisLabels(){
  *   中键按下 —— 切换左键功能（旋转 ⇄ 平移），界面上有徽标与状态栏提示
  *   右键拖动 —— 旋转相机（改 θ / φ）
  *   滚轮     —— 缩放物体（改 modelScale）
- *   Shift+滚轮 —— 推拉相机（改 camRadius）
+ *   Ctrl+滚轮 —— 推拉相机（改 camRadius）
  * ================================================================== */
 var DRAG_NONE = 0, DRAG_OBJECT = 1, DRAG_CAMERA = 2, DRAG_TRANSLATE = 3;
 var dragging = DRAG_NONE;         // 当前拖动模式
@@ -802,7 +866,12 @@ function initPointerInteraction(){
         }
     });
 
-    canvas.addEventListener('mousemove', function(e){
+    /* 移动与抬起监听在整个窗口上，而不是只挂在 canvas 上：
+     * 视口里还叠着左键功能徽标、gizmo 取景框这些 DOM 覆盖层，
+     * 光标一旦划过它们，挂在 canvas 上的 mousemove 就收不到事件，拖动会"卡住"、
+     * 物体停在半路——这正是"平移有时不跟手"的根源。挂在 window 上还能让
+     * 光标拖出视口后继续拖动，与常见三维软件的拖动手感一致。 */
+    window.addEventListener('mousemove', function(e){
         if (dragging === DRAG_OBJECT) {
             rotateObjectByTrackball(e);
         } else if (dragging === DRAG_TRANSLATE) {
@@ -812,23 +881,26 @@ function initPointerInteraction(){
         }
     });
 
-    // 鼠标抬起或移出画布即结束本次拖动
-    canvas.addEventListener('mouseup',    endDrag);
-    canvas.addEventListener('mouseleave', endDrag);
+    // 鼠标抬起即结束本次拖动（抬起事件同样要挂在 window 上，否则在视口外松手不会结束拖动）
+    window.addEventListener('mouseup', endDrag);
 
     // 右键拖动需要屏蔽浏览器右键菜单；中键的 auxclick 也一并屏蔽
     canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); });
     canvas.addEventListener('auxclick',     function(e){ e.preventDefault(); });
 
-    /* 滚轮：默认缩放物体（物体的 M = T·R·S 中的 S），按住 Shift 时改为推拉相机距离。
-     * passive:false 才允许 preventDefault，避免页面/容器跟着滚动。 */
+    /* 滚轮：默认缩放物体（物体的 M = T·R·S 中的 S），按住 Ctrl 时改为推拉相机距离。
+     * 注意两点：
+     *   1) 用 Ctrl 而不是 Shift——多数浏览器会把 Shift+滚轮转成"横向滚动"，
+     *      此时 deltaY 恒为 0，缩放/推拉都会失效；
+     *   2) 浏览器把 Ctrl+滚轮绑成"页面缩放"，必须靠 preventDefault 拦住
+     *      （所以监听器要 passive:false），否则整个页面会先被放大。 */
     canvas.addEventListener('wheel', function(e){
         e.preventDefault();
-        if (e.shiftKey) {
+        if (e.ctrlKey || e.metaKey) {
             camRadius = camRadius * (e.deltaY > 0 ? 1.1 : 1.0 / 1.1);
         } else {
             // 向前滚（deltaY < 0）放大，向后滚缩小；范围与侧栏滑块保持一致
-            modelScale = Math.max(0.2, Math.min(3.0,
+            modelScale = Math.max(MODEL_SCALE_MIN, Math.min(MODEL_SCALE_MAX,
                         modelScale * (e.deltaY > 0 ? 0.9 : 1.1)));
         }
         clampCamera();
@@ -893,11 +965,12 @@ function cameraAxisToWorld(a){
  * 左键平移模式（绝对映射）
  * 把鼠标的屏幕位移映射成世界位移：横向沿相机右向量、纵向沿相机上向量（向下为负）。
  * 每像素对应的世界长度由当前投影方式决定：
- *   正交 —— 整个画布高度对应 2·ORTHO_HALF_V 个世界单位，与距离无关；
+ *   正交 —— 整个画布高度对应 2·orthoHalfV() 个世界单位，与 formProjectMatrix() 完全一致；
  *   透视 —— 在"过原点的对焦平面"上，画布高度对应 2·tan(fov/2)·camRadius。
+ * 两者在默认参数下相等，因此正交/透视下拖动的灵敏度一致。
  * ================================================================== */
 function worldPerPixel(){
-    if (isOrth) return (2.0 * ORTHO_HALF_V) / canvas.height;
+    if (isOrth) return (2.0 * orthoHalfV()) / canvas.height;
     return (2.0 * Math.tan(radians(fov * 0.5)) * camRadius) / canvas.height;
 }
 
@@ -921,14 +994,19 @@ function translateObjectByDrag(e){
     render();
 }
 
-/* 右键拖动：横向改方位角 θ、纵向改仰角 φ（每像素 0.3°） */
+/* 右键拖动：横向改方位角 θ、纵向改仰角 φ（每像素 0.3°）。
+ * 方向统一为"抓取式"：拖动方向 = 物体在屏幕上的移动方向（与左键旋转/平移一致）。
+ *   - 向右拖动 → 物体右移：相机绕 Y 轴向左绕行，θ 减小；
+ *   - 向下拖动 → 物体下移：相机抬高、视线更俯视，φ（相对 +Y 轴的仰角）减小。
+ * φ 的符号务必要与横向一致，否则会出现"横向对、纵向反"的割裂手感。 */
 function rotateCameraByDrag(e){
     if (!cameraDragLast) return;
     var dx = e.clientX - cameraDragLast.x;
     var dy = e.clientY - cameraDragLast.y;
     cameraDragLast = { x: e.clientX, y: e.clientY };
-    theta -= dx * 0.3;   // 向右拖动=相机绕 Y 轴左移，画面中的场景随之向右转
-    phi   += dy * 0.3;   // 向下拖动=相机降低，观察方向趋于仰视
+    theta -= dx * 0.3;
+    phi   -= dy * 0.3;
+    resetCamUp();        // 手动给定 (θ, φ) 即回到无滚转姿态
     clampCamera();
     syncUI();
     render();
