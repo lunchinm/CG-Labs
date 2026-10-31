@@ -264,14 +264,20 @@ function generateSphere(){
     var vd = vec4(0.816497, -0.471405, 0.333333, 1.0);
 
     /* 球面上的顶点已是单位向量，其自身方向即为该点法线（四边形的 w 分量不参与） */
+    /* 三角形按"从球外看逆时针（CCW）"的顺序写入：
+     * 递归细分得到的三角形如果按 a→b→c 直接写，从外面看是顺时针的，
+     * gl_FrontFacing 会把整个球面判成背面——相机飞进球体内部时，
+     * 内壁着色（见 3d-wandering.frag 的 u_BackMix）就会把外表面也一起涂灰。
+     * 这里统一反序，使外表面为正面、内表面为背面，与立方体等模型保持一致。
+     * 本程序不开背面剔除，因此这一顺序不影响正常外观。 */
     function triangle(a, b, c) {
-        points.push(a);
-        points.push(b);
         points.push(c);
+        points.push(b);
+        points.push(a);
 
-        colors.push(shadeColor(SPHERE_BASE, [a[0], a[1], a[2]]));
-        colors.push(shadeColor(SPHERE_BASE, [b[0], b[1], b[2]]));
         colors.push(shadeColor(SPHERE_BASE, [c[0], c[1], c[2]]));
+        colors.push(shadeColor(SPHERE_BASE, [b[0], b[1], b[2]]));
+        colors.push(shadeColor(SPHERE_BASE, [a[0], a[1], a[2]]));
     };
 
     function divideTriangle(a, b, c, count) {

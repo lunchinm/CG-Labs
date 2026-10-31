@@ -63,12 +63,14 @@ var ProjectionMatrix;          // 投影变换矩阵
 // shader里的统一变量在本代码里的标识变量
 var u_ModelMatrix, u_ViewMatrix, u_ProjectionMatrix;
 var u_Flag;//用来区分绘制坐标还是物体，坐标轴不需要进行M变换
+var u_BackMix;//背面（内壁）着色强度：相机飞进物体内部时，让内壁不至于是一块暗色
 
 // 各段在顶点缓冲区中的位置（由 buildScene() 统一计算）
 var objStart = 0;              // 物体段起始下标
 var objCount = 0;              // 物体段顶点数
 var objEdgeStart = 0;          // 导入模型的边线段起始下标（其余模型为 0，不绘制）
 var objEdgeCount = 0;          // 导入模型的边线段顶点数
+var objBoundRadius = 1.0;      // 物体顶点包围球半径（物体坐标系，由 buildScene() 实测）
 
 // 场景中的默认观察参数
 // 默认相机距离与默认 fov 满足 r·tan(fov/2) = 15.5·tan30° ≈ 8.95 = 正交 halfV，
@@ -134,6 +136,7 @@ window.onload = function() {
     u_ViewMatrix = gl.getUniformLocation( program, "u_ViewMatrix" );
     u_ProjectionMatrix = gl.getUniformLocation( program, "u_ProjectionMatrix" );
     u_Flag = gl.getUniformLocation(program, "u_Flag");
+    u_BackMix = gl.getUniformLocation(program, "u_BackMix");
 
     //调整画布大小以填满视口容器（保持与容器 CSS 尺寸 1:1），并设置 viewport
     resizeCanvas();
@@ -179,13 +182,29 @@ function resizeCanvas(){
     gl.viewport( 0, 0, w, h );
 }
 
+/* 键码识别：中文输入法处于"组合输入"状态时，字母键的 keyCode 会变成 229，
+ * switch(e.keyCode) 全部落空，表现就是"按了键没反应"（与浏览器/页面都无关）。
+ * 这里在 229 或取不到 keyCode 时改用物理键位 e.code 反查，输入法开着也能操作。 */
+var KEYCODE_BY_CODE = {
+    KeyZ: 90, KeyC: 67, KeyW: 87, KeyA: 65, KeyS: 83, KeyD: 68, KeyQ: 81, KeyE: 69,
+    KeyX: 88, KeyR: 82, KeyP: 80, KeyM: 77, KeyN: 78,
+    ArrowLeft: 37, ArrowRight: 39, ArrowUp: 38, ArrowDown: 40,
+    ShiftLeft: 16, ShiftRight: 16, ControlLeft: 17, ControlRight: 17, Space: 32
+};
+
+function keyCodeOf(e){
+    var k = e.keyCode || 0;
+    if (k !== 0 && k !== 229) return k;            // 常规按键直接用 keyCode
+    return KEYCODE_BY_CODE[e.code] || k;           // 组合输入态按物理键位识别
+}
+
 /* 注册键盘按键事件，修改变换矩阵中的各项参数，并重新进行渲染render */
 window.onkeydown = function(e){
     // 焦点在输入控件内时不拦截按键，避免影响数字框/滑块的正常输入
     var tag = (e.target && e.target.tagName) ? e.target.tagName : '';
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
-    switch (e.keyCode) {
+    switch (keyCodeOf(e)) {
         case 90:    // Z-物体整体放大
             modelScale = Math.min(MODEL_SCALE_MAX, modelScale * 1.1);
             break;
@@ -193,21 +212,44 @@ window.onkeydown = function(e){
             modelScale = Math.max(MODEL_SCALE_MIN, modelScale * 0.9);
             break;
 
-        /* ===== W/S/A/D：按住持续平滑旋转相机 =====
-         * 旧实现每收到一次按键事件就整步跳 5°，受操作系统"先延迟后定频重复"的
-         * 影响，画面必然一顿一顿。现在 keydown 只负责"置位 + 启动动画循环"，
-         * 真正的角度累加交给 camAnimFrame() 按真实时间步长连续完成。 */
-        case 87:    // W-相机严格绕世界 X 轴旋转（抬升）
-            cameraKey.w = true; startCameraAnim();
+        /* ===== W/S/A/D 有两个含义，取决于当前视角模式 =====
+         * 轨道模式：按住持续平滑旋转相机（旧实现每次按键整步跳 5°，受操作系统
+         *           "先延迟后定频重复"影响会一顿一顿，现已改由 camAnimFrame()
+         *           按真实时间步长累加角度）；
+         * 自由视角：第一人称平移——W/S 沿视线前后、A/D 沿相机右向量左右。 */
+        case 87:    // W-轨道：绕世界 X 轴抬升；自由：沿视线前进
+        case 83:    // S-轨道：绕世界 X 轴降低；自由：沿视线后退
+        case 65:    // A-轨道：绕世界 Y 轴旋转（θ 减小）；自由：向左平移
+        case 68:    // D-轨道：绕世界 Y 轴旋转（θ 增大）；自由：向右平移
+            setCameraKey(e.keyCode, true);
+            startCameraAnim();
             break;
-        case 83:    // S-相机严格绕世界 X 轴旋转（降低）
-            cameraKey.s = true; startCameraAnim();
+
+        /* ===== Q/E：相机严格绕世界 Z 轴旋转（仅轨道模式）=====
+         * 自由视角里 Q/E 不再承担转动职责（转动由右键转头完成）。 */
+        case 81:    // Q-绕世界 Z 轴正向
+        case 69:    // E-绕世界 Z 轴反向
+            if (!freeCam.active) { setCameraKey(e.keyCode, true); startCameraAnim(); }
             break;
-        case 65:    // A-相机绕世界 Y 轴顺时针旋转（θ 减小）
-            cameraKey.a = true; startCameraAnim();
+
+        /* ===== 空格：双击切换自由视角；自由视角内按住上升 ===== */
+        case 32:
+            e.preventDefault();     // 阻止空格滚动页面 / 重新触发带焦点的按钮
+            if (!e.repeat) handleSpaceDown();   // 只认真实的按下，不认系统自动重复
             break;
-        case 68:    // D-相机绕世界 Y 轴逆时针旋转（θ 增大）
-            cameraKey.d = true; startCameraAnim();
+
+        /* ===== 自由视角的升降：Shift / 空格（长按）上升，X 下降 =====
+         * 下降刻意不用 Ctrl：Windows 上 Ctrl + 字母是浏览器保留快捷键
+         * （Ctrl+W 直接关闭标签页，网页拦不住；Ctrl+S/R/P/N 也各有含义），
+         * 而飞行时几乎必然一边下降一边按字母键，所以换成一个没有系统/浏览器
+         * 占用的单键 X。Ctrl 只保留"Ctrl+滚轮调飞行速度"这一个用途。 */
+        case 16:    // Shift-自由视角上升（与空格长按等价）
+            cameraKey.shift = true;
+            if (freeCam.active) startCameraAnim();
+            break;
+        case 88:    // X-自由视角下降（轨道模式下无作用）
+            cameraKey.x = true;
+            if (freeCam.active) startCameraAnim();
             break;
 
         /* ===== 附加项：方向键控制物体累积平移（M = T·R·S 中的T）===== */
@@ -228,8 +270,8 @@ window.onkeydown = function(e){
             e.preventDefault();
             break;
 
-        case 80:    // P-切换投影方式
-            isOrth = !isOrth;
+        case 80:    // P-切换投影方式（自由视角固定透视，见 enterFreeCam）
+            if (!freeCam.active) isOrth = !isOrth;
             break;
         case 77:    // M-放大视野角，给了一个限制范围
             fov = Math.min(fov + 5, 170);
@@ -238,7 +280,7 @@ window.onkeydown = function(e){
             fov = Math.max(fov - 5, 5);
             break;
 
-        case 32:    // 空格-复位
+        case 82:    // R-复位（原空格复位已让给自由视角的切换/上升）
             initViewingParameters();
             break;
     }
@@ -248,31 +290,67 @@ window.onkeydown = function(e){
     render();//参数变化后需要重新绘制画面
 }
 
-/* 松开 W/S/A/D 时仅清掉对应标志位，动画循环会在下一帧发现"无键按下"后自行结束 */
+/* 松开按键时仅清掉对应标志位，动画循环会在下一帧发现"无键按下"后自行结束 */
 window.onkeyup = function(e){
-    switch (e.keyCode) {
-        case 87: cameraKey.w = false; break;
-        case 83: cameraKey.s = false; break;
-        case 65: cameraKey.a = false; break;
-        case 68: cameraKey.d = false; break;
+    switch (keyCodeOf(e)) {
+        case 87: case 83: case 65: case 68: case 81: case 69:
+            setCameraKey(e.keyCode, false); break;
+        case 16: cameraKey.shift = false; break;
+        case 88: cameraKey.x = false; break;
+        case 32: cameraKey.space = false; spaceHoldFrom = -1e9; break;
     }
 };
 
 /* 窗口失焦（Alt+Tab、切到别的应用）时按键的 keyup 可能收不到，
- * 必须主动清空标志位，否则相机释放后仍会一直转下去 */
+ * 必须主动清空标志位，否则相机释放后仍会一直转下去 / 一直飞下去 */
 window.onblur = function(){
-    cameraKey.w = cameraKey.s = cameraKey.a = cameraKey.d = false;
+    clearCameraKeys();
 };
 
 /* ==================================================================
- * 相机键盘旋转的平滑动画
- * 采用 requestAnimationFrame + 真实时间步长驱动，角速度恒定（90°/秒）：
- *  - 轻点一下（约 50~100ms）大约转过 5°~9°，与旧的离散步进手感接近；
- *  - 按住则连续匀速旋转，彻底消除"一顿一顿"的跳变。
+ * 相机键盘操作的平滑动画
+ * 采用 requestAnimationFrame + 真实时间步长驱动：
+ *   轨道模式 —— W/S/A/D/Q/E 以 90°/秒 连续旋转相机
+ *              （轻点约转 5°~9°，按住匀速转，彻底消除"一顿一顿"的跳变）；
+ *   自由视角 —— W/S/A/D 平移、空格（长按）/Shift 上升、X 下降，速度见 freeFlySpeed。
+ * 输入事件只负责"置位 + 启动循环"，角度/位移的累加全部交给本循环按真实时间完成。
  * ================================================================== */
-var CAMERA_ROT_SPEED = 90.0;                      // 连续旋转角速度（度/秒）
-var cameraKey = { w:false, s:false, a:false, d:false };
+var CAMERA_ROT_SPEED = 90.0;                      // 轨道相机连续旋转角速度（度/秒）
+var cameraKey = { w:false, s:false, a:false, d:false, q:false, e:false,
+                  space:false, shift:false, x:false };
 var camAnimRunning = false, camAnimLast = 0;
+
+/* ------------------------------------------------------------------
+ * 自由视角（第一人称飞行）：双击空格进入 / 退出
+ *   active  —— 当前是否处于自由视角
+ *   eye     —— 相机世界坐标（进入时取轨道相机当前位置，之后由 WASD 平移）
+ *   forward —— 视线方向（单位向量，指向场景内部）
+ *   up      —— 上向量（不累积滚转：始终由视线与世界 Y 轴重新生成）
+ *   saved   —— 进入前的轨道相机状态快照，退出时原样恢复
+ * ------------------------------------------------------------------ */
+var freeCam = { active:false, eye:vec3(0,0,0), forward:vec3(0,0,-1), up:vec3(0,1,0), saved:null };
+
+var FREE_FLY_SPEED_DEFAULT = 6.0;   // 默认飞行速度（世界单位/秒，Ctrl+滚轮可调）
+var FREE_FLY_SPEED_MIN = 1.0, FREE_FLY_SPEED_MAX = 40.0;
+var FREE_LIFT_RATIO = 0.7;          // 升降速度 = 飞行速度 × 0.7
+var FREE_LOOK_SPEED = 0.3;          // 右键转头灵敏度（度/像素）
+var FREE_PITCH_LIMIT = 85.0;        // 俯仰限制（度），保证相机右向量不退化
+var freeFlySpeed = FREE_FLY_SPEED_DEFAULT;
+/* 相机与原点距离的上限：透视投影 far = 200，飞得太远物体会掉出视见体、
+ * 画面变成一片背景色（容易被当成"程序坏了"），因此把飞行范围收在球内。 */
+var FREE_FLY_REACH_MAX = 150.0;
+
+/* 背面（内壁）着色强度（见 shaders/3d-wandering.frag）：
+ * 相机进入物体后画面全是背面，把背面颜色朝中性灰蓝混合，
+ * 内壁既有本来的色调、又明显区别于外表面，结构可辨。
+ * 只在"相机贴近/进入物体"时才生效（见 cameraInsideObject()），
+ * 保证常规视距下的外观与之前逐像素一致。 */
+var BACKFACE_TINT = 0.6;
+
+var SPACE_DOUBLE_MS = 300.0;        // 双击空格的判定间隔（毫秒）
+var SPACE_HOLD_MS   = 250.0;        // 自由视角内按住多久才开始上升（毫秒）
+var lastSpaceDown  = -1e9;          // 上一次空格按下时刻（双击判定）
+var spaceHoldFrom  = -1e9;          // 本次空格按下时刻（长按上升判定）
 
 function startCameraAnim(){
     if (camAnimRunning) return;                   // 循环已在跑时无需重复启动
@@ -281,26 +359,190 @@ function startCameraAnim(){
     requestAnimationFrame(camAnimFrame);
 }
 
+/* keydown / keyup 的公共登记入口：把键码写进 cameraKey 的对应标志位 */
+function setCameraKey(code, down){
+    if      (code === 87) cameraKey.w = down;
+    else if (code === 83) cameraKey.s = down;
+    else if (code === 65) cameraKey.a = down;
+    else if (code === 68) cameraKey.d = down;
+    else if (code === 81) cameraKey.q = down;
+    else if (code === 69) cameraKey.e = down;
+}
+
+/* 一次性清空所有按键标志（切换视角模式、窗口失焦时使用） */
+function clearCameraKeys(){
+    cameraKey.w = cameraKey.s = cameraKey.a = cameraKey.d = false;
+    cameraKey.q = cameraKey.e = false;
+    cameraKey.space = cameraKey.shift = cameraKey.x = false;
+}
+
+/* 本帧是否还有需要连续处理的按键：决定动画循环是否继续排队下一帧 */
+function anyCameraKeyActive(){
+    if (freeCam.active) {
+        return cameraKey.w || cameraKey.s || cameraKey.a || cameraKey.d ||
+               cameraKey.shift || cameraKey.x || cameraKey.space;
+    }
+    return cameraKey.w || cameraKey.s || cameraKey.a || cameraKey.d ||
+           cameraKey.q || cameraKey.e;
+}
+
 function camAnimFrame(now){
     // 单帧步长上限 50ms：避免切回标签页、长时间卡顿后"补帧"造成角度突跳
     var dt = Math.min(0.05, Math.max(0.0, (now - camAnimLast) / 1000));
     camAnimLast = now;
-    var step = CAMERA_ROT_SPEED * dt;             // 本帧应转过的角度
 
-    if (cameraKey.w) rotateCameraAboutWorldX(-step);   // W 绕世界 X 轴正向抬升相机
-    if (cameraKey.s) rotateCameraAboutWorldX( step);   // S 反向
-    if (cameraKey.a) rotateCameraAboutWorldY(-step);   // A 绕世界 Y 轴旋转
-    if (cameraKey.d) rotateCameraAboutWorldY( step);   // D 反向
+    if (freeCam.active) {
+        applyFreeMotion(dt, now);                 // 自由视角：WASD 平移 + 升降
+    } else {
+        var step = CAMERA_ROT_SPEED * dt;         // 本帧应转过的角度
+        if (cameraKey.w) rotateCameraAboutWorldX(-step);   // 绕世界 X 轴抬升相机
+        if (cameraKey.s) rotateCameraAboutWorldX( step);   // 反向
+        if (cameraKey.a) rotateCameraAboutWorldY(-step);   // 绕世界 Y 轴旋转
+        if (cameraKey.d) rotateCameraAboutWorldY( step);   // 反向
+        if (cameraKey.q) rotateCameraAboutWorldZ( step);   // 绕世界 Z 轴旋转
+        if (cameraKey.e) rotateCameraAboutWorldZ(-step);   // 反向
+    }
 
     clampCamera();
     syncUI();
     render();
 
-    if (cameraKey.w || cameraKey.s || cameraKey.a || cameraKey.d) {
+    if (anyCameraKeyActive()) {
         requestAnimationFrame(camAnimFrame);
     } else {
         camAnimRunning = false;                   // 全部松开后循环自然结束
     }
+}
+
+/* ==================================================================
+ * 自由视角：姿态与位移
+ * 视线用"水平朝向 + 仰角"两个自由度表示，上向量每帧由视线与世界 Y 轴重新生成，
+ * 因此自由视角里永远不会累积滚转；俯仰限制在 ±85° 内，右向量不会退化。
+ * ================================================================== */
+/* 相机右向量：视线与世界 Y 轴的叉乘（俯仰已限幅，模长 ≥ cos85° > 0） */
+function freeRight(){
+    return normalize(cross(freeCam.forward, vec3(0.0, 1.0, 0.0)));
+}
+
+/* 相机上向量：由右向量与视线重新给出（右手系、无滚转） */
+function freeUp(){
+    return normalize(cross(freeRight(), freeCam.forward));
+}
+
+/* 按"水平朝向 f 的 XZ 分量 + 仰角 elevDeg"写回视线与上向量。
+ * 拆成水平分量与仰角再合成，可让俯仰精确受限于 ±FREE_PITCH_LIMIT，
+ * 也避免连续拖动时浮点误差累积成滚转。 */
+function setFreeForward(f, elevDeg){
+    var hx = f[0], hz = f[2];
+    var hl = Math.sqrt(hx * hx + hz * hz);
+    if (hl < 1e-6) { hx = 0.0; hz = -1.0; hl = 1.0; }   // 俯仰已限幅，正常不会走到这里
+    hx /= hl; hz /= hl;
+    var r = radians(elevDeg);
+    freeCam.forward = vec3(hx * Math.cos(r), Math.sin(r), hz * Math.cos(r));
+    freeCam.up = freeUp();
+}
+
+/* 由任意视线方向写回姿态（进入自由视角时用）：仰角由方向的 Y 分量反算并限幅 */
+function setFreeForwardFromDir(f){
+    var elev = Math.asin(Math.max(-1.0, Math.min(1.0, f[1]))) * 180.0 / Math.PI;
+    elev = Math.max(-FREE_PITCH_LIMIT, Math.min(FREE_PITCH_LIMIT, elev));
+    setFreeForward(f, elev);
+}
+
+/* 自由视角的每帧位移：
+ *   W/S —— 沿视线前后（含俯仰分量，即"按看的方向飞"）
+ *   A/D —— 沿相机右向量左右
+ *   空格（按住 ≥250ms）/ Shift —— 沿世界 +Y 上升
+ *   X —— 沿世界 −Y 下降
+ * 升降速度取飞行速度的 0.7 倍，Ctrl+滚轮改飞行速度时两者同步变化。 */
+function applyFreeMotion(dt, now){
+    var f = freeCam.forward, r = freeRight();
+    var step = freeFlySpeed * dt;                       // 平移步长（世界单位）
+    var lift = FREE_LIFT_RATIO * freeFlySpeed * dt;     // 升降步长
+    var rising = cameraKey.shift ||
+                 (cameraKey.space && (now - spaceHoldFrom) >= SPACE_HOLD_MS);
+
+    var e = freeCam.eye;
+    var mx = 0.0, my = 0.0, mz = 0.0;
+    if (cameraKey.w) { mx += f[0] * step; my += f[1] * step; mz += f[2] * step; }
+    if (cameraKey.s) { mx -= f[0] * step; my -= f[1] * step; mz -= f[2] * step; }
+    if (cameraKey.a) { mx -= r[0] * step; my -= r[1] * step; mz -= r[2] * step; }
+    if (cameraKey.d) { mx += r[0] * step; my += r[1] * step; mz += r[2] * step; }
+    if (rising)      { my += lift; }
+    if (cameraKey.x) { my -= lift; }
+
+    freeCam.eye = vec3(e[0] + mx, e[1] + my, e[2] + mz);
+
+    /* 限制飞行半径：超出 FREE_FLY_REACH_MAX 时把位置拉回球面上，
+     * 避免飞远后物体掉出透视视见体（far = 200），画面变成一片背景色。 */
+    var d = length(freeCam.eye);
+    if (d > FREE_FLY_REACH_MAX) {
+        var k = FREE_FLY_REACH_MAX / d;
+        freeCam.eye = vec3((e[0] + mx) * k, (e[1] + my) * k, (e[2] + mz) * k);
+    }
+}
+
+/* ==================================================================
+ * 自由视角的进入 / 退出
+ * 进入：相机停在轨道相机当前位置，视线由相机指向原点，之后完全由键鼠驱动；
+ * 退出：把进入前的 (θ, φ, 距离, 滚转 up, 投影方式, fov) 原样恢复，
+ *       画面回到进入自由视角前的一刻。
+ * ================================================================== */
+function enterFreeCam(){
+    if (freeCam.active) return;
+    freeCam.saved = {
+        theta: theta, phi: phi, camRadius: camRadius,
+        camUp: camUp ? vec3(camUp[0], camUp[1], camUp[2]) : null,
+        isOrth: isOrth, fov: fov
+    };
+    freeCam.eye = eyePosition(camRadius);
+    setFreeForwardFromDir(negate(eyeDirection(theta, phi)));   // 视线 = 由相机指向原点
+    /* 自由视角一律用透视投影：平行投影下"沿视线方向平移观察者"数学上不改变成像，
+     * 若沿用正交投影，W/S（沿视线前后飞）画面会毫无变化，看起来就像按键失灵；
+     * 左右平移也只会变成画面的整体横移。退出时按快照恢复原来的投影方式。 */
+    isOrth = false;
+    freeCam.active = true;
+    clearCameraKeys();                 // 不把轨道模式的残留按键带进自由视角
+}
+
+function exitFreeCam(){
+    if (!freeCam.active) return;
+    freeCam.active = false;
+    if (freeCam.saved) {
+        theta = freeCam.saved.theta;
+        phi = freeCam.saved.phi;
+        camRadius = freeCam.saved.camRadius;
+        camUp = freeCam.saved.camUp;
+        isOrth = freeCam.saved.isOrth;
+        fov = freeCam.saved.fov;
+        freeCam.saved = null;
+    }
+    clearCameraKeys();
+    clampCamera();
+}
+
+function toggleFreeCam(){
+    if (freeCam.active) exitFreeCam(); else enterFreeCam();
+    syncUI();
+    render();
+}
+
+/* 空格的两种用法：
+ *   1) 两次按下间隔 < 300ms → 切换 轨道 / 自由视角；
+ *   2) 自由视角内按住超过 250ms → 上升（判定在 applyFreeMotion 中）。
+ * 长按判定刻意留了 250ms 延迟，这样"双击"的第二下不会先让相机抬起来。 */
+function handleSpaceDown(){
+    var now = performance.now();
+    var isDouble = (now - lastSpaceDown) < SPACE_DOUBLE_MS;
+    if (isDouble) {
+        lastSpaceDown = -1e9;         // 重置，避免三连击被识别成两次切换
+        toggleFreeCam();              // 内部 clearCameraKeys() 会清掉 space 标志
+    } else {
+        lastSpaceDown = now;
+    }
+    spaceHoldFrom = now;
+    cameraKey.space = true;           // 置位放在切换之后：切换会清空所有标志
+    if (freeCam.active) startCameraAnim();
 }
 
 /* 说明：W/S 采用"严格绕世界 X 轴"的刚性旋转——把 eye 与 up 一起用 R_x(±Δ) 旋转。
@@ -312,7 +554,8 @@ function camAnimFrame(now){
  * 这是"绕世界 X 轴旋转相机"必然的几何结果；"地平线恒水平"只在 θ=0°/180°
  * （前/后视图，视线位于 YZ 平面内）时才与它重合。
  * 一旦用户改用滑块或视图预设重新给定 (θ, φ)，camUp 即被清空、回到无滚转姿态；
- * 右键拖动与 W/S、A/D 走同一套刚性旋转，同样保留（并累积）滚转。 */
+ * 轨道模式下的右键拖动（屏幕平面内的抓取旋转，见 orbitGrabByDrag）同样保留滚转，
+ * 因为它也是把 eye 与 up 当刚体一起转。 */
 
 /* 把相机极坐标参数限制在合法范围内（θ 环绕到 [-180,180)，φ 截断到 [0,180]） */
 function clampCamera(){
@@ -341,6 +584,12 @@ function render(){
 
     /* ---------- pass1：中心物体（写深度，作为遮挡参照）---------- */
     gl.uniform1i( u_Flag, 1 );   // 标志位=1，顶点先经 M 变换再经 P·V
+    /* 内壁着色：相机在自由视角里飞进物体后，画面看到的全是背面。
+     * 背面按中性灰蓝混合后，内壁不再是一块读不出结构的暗色；
+     * 仅在相机进入物体包围球时才开启，常规视距下这项设置完全不生效。
+     * 导入 OBJ 的三角面绕序来自文件、不受本程序控制（gl_FrontFacing 可能整体反相），
+     * 为避免外表面被误当成内壁，对导入模型一律关闭此项。 */
+    gl.uniform1f( u_BackMix, (currentModel === 'obj' || !cameraInsideObject()) ? 0.0 : BACKFACE_TINT );
     gl.depthMask( true );
     if (currentModel === 'solar' && solarSegments) {
         drawSolarBodies(ModelMatrix);       // 层次建模：太阳 / 地球 / 月球各用独立的 M
@@ -364,6 +613,7 @@ function render(){
 
     /* ---------- pass2：三色坐标轴（不写深度，被物体正确遮挡）---------- */
     gl.uniform1i( u_Flag, 0 );   // 标志位=0，只用 P·V 绘制，不做模型变换
+    gl.uniform1f( u_BackMix, 0.0 );   // 坐标轴是线与圆锥，不做内壁着色
     gl.depthMask( false );
 
     if (showAxes) {
@@ -521,6 +771,7 @@ function drawGizmo( gizmoStart )
     gl.uniformMatrix4fv( u_ViewMatrix, false, flatten(formGizmoViewMatrix()) );          // 只含旋转的视图矩阵
     gl.uniformMatrix4fv( u_ProjectionMatrix, false, flatten(ortho(-0.72, 0.72, -0.72, 0.72, 0.1, 10.0)) );
     gl.uniform1i( u_Flag, 0 );
+    gl.uniform1f( u_BackMix, 0.0 );          // gizmo 的圆锥箭头不做内壁着色
 
     gl.drawArrays( gl.LINES, gizmoStart, gizmoLineCount - gizmoStart );
     gl.drawArrays( gl.TRIANGLES, gizmoLineCount, gizmoVertexCount - gizmoLineCount );
@@ -533,6 +784,12 @@ function drawGizmo( gizmoStart )
 * 初始化或复位：需要将交互参数及变换矩阵设置为初始值
 ********************************************************/
 function initViewingParameters(){
+    /* 复位一律回到轨道相机：自由视角（双击空格进入）也在这里被退出，
+     * 画面参数随后按下面的默认值重建，不需要恢复 entered 时的快照。 */
+    freeCam.active = false;
+    freeCam.saved  = null;
+    freeFlySpeed = FREE_FLY_SPEED_DEFAULT;
+
     modelScale = 1.0;
     modelRot = mat4();          // 附加项：累积旋转复位为单位矩阵
     modelTrans = vec3(0,0,0);   // 附加项：累积平移复位为零向量
@@ -544,7 +801,7 @@ function initViewingParameters(){
     fov = DEFAULT_FOV;
     leftDragMode = 'rotate';    // 左键功能一并回到"旋转物体"
 
-    cameraKey.w = cameraKey.s = cameraKey.a = cameraKey.d = false;   // 停掉按键连续旋转
+    clearCameraKeys();          // 停掉所有按键连续旋转 / 连续飞行
 
     ModelMatrix = mat4(); //单位矩阵
     ViewMatrix = mat4();//单位矩阵
@@ -616,7 +873,33 @@ function buildScene(model){
     /* objCount 只统计三角面，边线段（objEdgeCount）不计入，否则会被当成三角形绘制 */
     objCount = points.length - objStart - objEdgeCount;
 
+    objBoundRadius = boundRadiusOf(points, objStart, objStart + objCount);
+
     SendData();//发送顶点属性数据给GPU
+}
+
+/* 实测物体三角面顶点到物体原点的最大距离，作为包围球半径。
+ * 判"相机是否进到物体里"只需一个保守的球，不必逐三角形求交；
+ * 球心随 M 的平移量移动、半径随 modelScale 缩放，旋转不影响包围球。 */
+function boundRadiusOf(pts, from, to){
+    var r2 = 0.0;
+    for (var i = from; i < to; i++) {
+        var v = pts[i];
+        var d2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+        if (d2 > r2) r2 = d2;
+    }
+    return Math.sqrt(Math.max(r2, 1e-6));
+}
+
+/* 相机是否已进入（或贴着）物体所在的包围球——
+ * 用来开关"内壁着色"：默认视距 15.5 下物体半径约 1.35，相机远在球外，
+ * 着色关闭，外观与不开启这项功能时逐像素相同；
+ * 自由视角里一路飞进去时才开始把背面染成浅色内壁。 */
+function cameraInsideObject(){
+    var c = freeCam.active ? freeCam.eye : eyePosition(camRadius);
+    var dx = c[0] - modelTrans[0], dy = c[1] - modelTrans[1], dz = c[2] - modelTrans[2];
+    var r = objBoundRadius * modelScale;
+    return (dx * dx + dy * dy + dz * dz) < r * r;
 }
 
 /********************************************************
@@ -725,6 +1008,19 @@ function rotateCameraAboutWorldY(deg){
     camUp = u2;
 }
 
+/* 严格绕世界 Z 轴旋转相机（Q/E）：eye 与 up 作为刚体一起绕 +Z 转。
+ * 相机始终在球面 r=camRadius 上绕 Z 轴画圆，视线始终指向原点，
+ * 因此观感是"整个场景（含三色坐标轴）绕 Z 轴反向旋转"。
+ * 由于 up 同步旋转，若原本存在滚转则滚转被保留，转动轴仍严格等于世界 Z 轴。 */
+function rotateCameraAboutWorldZ(deg){
+    var c = Math.cos(radians(deg)), s = Math.sin(radians(deg));
+    var e = eyeDirection(theta, phi), u = upVector();
+    var e2 = vec3(e[0] * c - e[1] * s, e[0] * s + e[1] * c, e[2]);
+    var u2 = vec3(u[0] * c - u[1] * s, u[0] * s + u[1] * c, u[2]);
+    setFromEyeDir(e2);
+    camUp = u2;
+}
+
 function formViewMatrix(){
 //===================TODO3：生成物体的视点变换矩阵V=======================
 /***提示1：观察者（eye）的位置计算***************************************
@@ -738,7 +1034,14 @@ function formViewMatrix(){
 *通常UP=(0,1,0),但是当相机视线方向n和UP共线时会有问题!
 *解决方法：找垂直于观察方向n的某线段作为up向量
 *********************************************************/
-    /* eye 的球面参数化：
+    /* 自由视角（双击空格进入）：相机位置与视线都由键鼠自由给定，
+     * 直接 lookAt(eye, eye+forward, up)，不再经过球面参数化。 */
+    if (freeCam.active) {
+        var e = freeCam.eye, f = freeCam.forward;
+        return lookAt(e, vec3(e[0] + f[0], e[1] + f[1], e[2] + f[2]), freeCam.up);
+    }
+
+    /* 轨道模式的 eye 球面参数化：
      *   eye = r*( sin(phi)*sin(theta), cos(phi), sin(phi)*cos(theta) )
      * 默认 theta=45°、phi=54.7356° 时为等轴测视角（正象限上方斜看原点）；
      * 只改变 θ 时 eye 在 XZ 平面内转动，即相机绕世界 Y 轴旋转，对应 A/D；
@@ -749,8 +1052,16 @@ function formViewMatrix(){
     return lookAt(eyePosition(camRadius), vec3(0.0,0.0,0.0), upVector()); //lookAt是/common/MVnew.js中的已经写好的函数
 };
 
-/* 角落 gizmo 专用视图矩阵：只随相机方向旋转、不随相机距离平移 */
+/* 角落 gizmo 专用视图矩阵：只随相机方向旋转、不随相机距离平移。
+ * 自由视角下同样只取朝向：lookAt 的 n = normalize(eye - at) 恒指向观察者背后，
+ * 主视图的 n = normalize(eye - (eye+forward)) = -forward，因此把 gizmo 相机
+ * 放在 -forward 方向上（而不是 +forward，否则 n 取反、gizmo 会转 180°），
+ * 得到与主视图完全一致的旋转部分，角落坐标轴与主画面朝向严丝合缝。 */
 function formGizmoViewMatrix(){
+    if (freeCam.active) {
+        var f = freeCam.forward;
+        return lookAt(vec3(-f[0] * 3.0, -f[1] * 3.0, -f[2] * 3.0), vec3(0.0,0.0,0.0), freeCam.up);
+    }
     return lookAt(eyePosition(3.0), vec3(0.0,0.0,0.0), upVector());
 }
 
@@ -832,6 +1143,7 @@ function initUI(){
 
     /* 工具栏：投影切换 / 复位 */
     bindClick(document.getElementById('btnProj'), function(){
+        if (freeCam.active) return;      // 自由视角固定透视投影（正交下 W/S 飞行看不出变化）
         isOrth = !isOrth; syncUI(); render();
     });
     bindClick(document.getElementById('btnReset'), function(){
@@ -921,20 +1233,48 @@ function activeViewPreset(){
 
 /* 把全局参数写回界面控件与状态栏（每帧调用，保证键鼠操作与面板始终一致） */
 function syncUI(){
-    document.getElementById('stProjection').textContent = isOrth ? '正交' : '透视';
+    /* 投影方式：自由视角一律透视（正交下 W/S 沿视线飞行不改变成像），
+     * 状态栏写明"固定"、按钮置灰，避免误以为投影切换失灵。 */
+    document.getElementById('stProjection').textContent =
+        freeCam.active ? '透视（自由视角固定）' : (isOrth ? '正交' : '透视');
     document.getElementById('btnProjLabel').textContent = isOrth ? '投影：正交' : '投影：透视';
+    document.getElementById('btnProj').disabled = freeCam.active;
 
-    document.getElementById('valTheta').textContent  = theta.toFixed(0) + '°';
-    document.getElementById('valPhi').textContent    = phi.toFixed(1) + '°';
+    /* 相机读数：轨道模式显示球面参数 (θ, φ, 距离)；
+     * 自由视角下改显相机自身的朝向（反算成同样的角度语义）与到原点的距离，
+     * 这样面板上的三个数字在任何模式下都对应"画面上正在看到的相机"。 */
+    var dispTheta, dispPhi, dispRadius;
+    if (freeCam.active) {
+        var f = freeCam.forward;
+        dispTheta  = Math.atan2(-f[0], -f[2]) * 180.0 / Math.PI;   // 视线反向 = 由原点指向相机
+        dispPhi    = Math.acos(Math.max(-1.0, Math.min(1.0, -f[1]))) * 180.0 / Math.PI;
+        dispRadius = length(freeCam.eye);
+    } else {
+        dispTheta = theta; dispPhi = phi; dispRadius = camRadius;
+    }
+
+    document.getElementById('valTheta').textContent  = dispTheta.toFixed(0) + '°';
+    document.getElementById('valPhi').textContent    = dispPhi.toFixed(1) + '°';
     document.getElementById('valFov').textContent    = fov.toFixed(0) + '°';
-    document.getElementById('valRadius').textContent = camRadius.toFixed(1);
+    document.getElementById('valRadius').textContent = dispRadius.toFixed(1);
     document.getElementById('valScale').textContent  = modelScale.toFixed(2);
 
-    document.getElementById('rngTheta').value  = theta;
-    document.getElementById('rngPhi').value    = phi;
+    document.getElementById('rngTheta').value  = dispTheta;
+    document.getElementById('rngPhi').value    = dispPhi;
     document.getElementById('rngFov').value    = fov;
-    document.getElementById('rngRadius').value = camRadius;
+    document.getElementById('rngRadius').value = Math.max(2.0, Math.min(40.0, dispRadius));
     document.getElementById('rngScale').value  = Math.max(MODEL_SCALE_MIN, Math.min(MODEL_SCALE_MAX, modelScale));
+
+    /* 自由视角由键鼠直接驱动，θ/φ/距离三个滑块与视图预设按钮不再有意义，
+     * 一律置灰，避免"拖了滑块画面不动"的困惑。 */
+    document.getElementById('rngTheta').disabled  = freeCam.active;
+    document.getElementById('rngPhi').disabled    = freeCam.active;
+    document.getElementById('rngRadius').disabled = freeCam.active;
+
+    /* 状态栏：视角模式 + 飞行速度（速度只在自由视角下显示） */
+    document.getElementById('stCamMode').textContent = freeCam.active ? '自由视角' : '轨道';
+    document.getElementById('stSpeedWrap').style.display = freeCam.active ? '' : 'none';
+    document.getElementById('valFlySpeed').textContent = freeFlySpeed.toFixed(1);
 
     var modelNames = {
         cube: '方块', sphere: '球', hat: '墨西哥帽',
@@ -945,12 +1285,18 @@ function syncUI(){
     document.getElementById('stTrans').textContent =
         '(' + modelTrans[0].toFixed(1) + ', ' + modelTrans[1].toFixed(1) + ', ' + modelTrans[2].toFixed(1) + ')';
 
-    /* 左键功能（中键切换）：视口徽标 + 状态栏两处同步 */
+    /* 左键功能（中键切换）：视口徽标 + 状态栏两处同步；
+     * 自由视角下徽标改为提示该模式的键位（左键功能仍然可用，中键仍可切换）。 */
     var isRotateMode = (leftDragMode === 'rotate');
     document.getElementById('stLeftMode').textContent = isRotateMode ? '旋转' : '平移';
-    document.getElementById('modeBadge').textContent =
-        isRotateMode ? '左键：旋转物体（中键切换）' : '左键：平移物体（中键切换）';
-    document.getElementById('modeBadge').classList.toggle('is-translate', !isRotateMode);
+    var badge = document.getElementById('modeBadge');
+    if (freeCam.active) {
+        badge.textContent = '自由视角：WASD 飞行 · 空格/Shift 升 · X 降 · 右键转头 · 双击空格退出';
+    } else {
+        badge.textContent = isRotateMode ? '左键：旋转物体（中键切换）' : '左键：平移物体（中键切换）';
+    }
+    badge.classList.toggle('is-translate', !isRotateMode);
+    badge.classList.toggle('is-free', freeCam.active);
 
     document.getElementById('rotInfo').textContent = rotationInfo();
 
@@ -970,10 +1316,12 @@ function syncUI(){
     document.getElementById('rngSpeed').value = sceneAnim.speed;
     document.getElementById('valSpeed').textContent = sceneAnim.speed.toFixed(1) + '×';
 
-    /* 同步视图预设高亮：当前方向不落在任何预设上时全部取消高亮 */
-    var activeName = activeViewPreset();
+    /* 同步视图预设高亮：当前方向不落在任何预设上时全部取消高亮。
+     * 自由视角的朝向与预设无关，一律取消高亮并把按钮置灰。 */
+    var activeName = freeCam.active ? null : activeViewPreset();
     document.querySelectorAll('#segView button').forEach(function(btn){
         btn.classList.toggle('active', btn.dataset.view === activeName);
+        btn.disabled = freeCam.active;
     });
 }
 
@@ -1053,9 +1401,9 @@ function updateGizmoLabels(){
  * 附加项：鼠标交互
  *   左键拖动 —— 由 leftDragMode 决定：虚拟跟踪球（旋转物体）或屏幕平移（移动物体）
  *   中键按下 —— 切换左键功能（旋转 ⇄ 平移），界面上有徽标与状态栏提示
- *   右键拖动 —— 旋转相机（改 θ / φ）
+ *   右键拖动 —— 轨道模式：屏幕平面内的"抓取旋转"；自由视角：第一人称转头
  *   滚轮     —— 缩放物体（改 modelScale）
- *   Ctrl+滚轮 —— 推拉相机（改 camRadius）
+ *   Ctrl+滚轮 —— 轨道模式：推拉相机（改 camRadius）；自由视角：调节飞行速度
  * ================================================================== */
 var DRAG_NONE = 0, DRAG_OBJECT = 1, DRAG_CAMERA = 2, DRAG_TRANSLATE = 3;
 var dragging = DRAG_NONE;         // 当前拖动模式
@@ -1066,7 +1414,11 @@ var dragging = DRAG_NONE;         // 当前拖动模式
 var trackballDown = null;         // 按下时鼠标位置在单位半球面上的点（vec3）
 var modelRotDown = null;          // 按下时的累积旋转矩阵（mat4）
 
-var cameraDragLast = null;        // 上一次鼠标像素位置（相机旋转用）
+/* 右键拖动的快照（两种模式共用按下点，但记录的状态不同）：
+ *   orbitGrabDown —— 轨道模式：按下时的 eye 方向与 up 向量（绝对式抓取旋转）
+ *   freeLookDown  —— 自由视角：按下时的视线方向（绝对式转头） */
+var orbitGrabDown = null;
+var freeLookDown  = null;
 
 /* 屏幕平移所需的状态：同样采用绝对映射（按下点 + 按下时的平移量） */
 var translateDownScreen = null;   // 按下时的鼠标像素位置
@@ -1091,9 +1443,22 @@ function initPointerInteraction(){
             leftDragMode = (leftDragMode === 'rotate') ? 'translate' : 'rotate';
             syncUI();
             render();
-        } else if (e.button === 2) {             // 右键：旋转相机
+        } else if (e.button === 2) {             // 右键：轨道=抓取旋转视图 / 自由=转头
             dragging = DRAG_CAMERA;
-            cameraDragLast = { x: e.clientX, y: e.clientY };
+            if (freeCam.active) {
+                freeLookDown = {
+                    x: e.clientX, y: e.clientY,
+                    forward: vec3(freeCam.forward[0], freeCam.forward[1], freeCam.forward[2])
+                };
+            } else {
+                /* 轨道模式记录按下瞬间的相机姿态（eye 方向 + up），
+                 * 之后每次 mousemove 都从这份快照重算，保证可逆。 */
+                orbitGrabDown = {
+                    x: e.clientX, y: e.clientY,
+                    eye: eyeDirection(theta, phi),
+                    up: upVector()
+                };
+            }
             e.preventDefault();
         }
     });
@@ -1120,7 +1485,9 @@ function initPointerInteraction(){
     canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); });
     canvas.addEventListener('auxclick',     function(e){ e.preventDefault(); });
 
-    /* 滚轮：默认缩放物体（物体的 M = T·R·S 中的 S），按住 Ctrl 时改为推拉相机距离。
+    /* 滚轮：默认缩放物体（物体的 M = T·R·S 中的 S），按住 Ctrl 时改为
+     *   —— 轨道模式：推拉相机距离（改 camRadius）
+     *   —— 自由视角：调节飞行速度（改 freeFlySpeed，状态栏实时显示）
      * 注意两点：
      *   1) 用 Ctrl 而不是 Shift——多数浏览器会把 Shift+滚轮转成"横向滚动"，
      *      此时 deltaY 恒为 0，缩放/推拉都会失效；
@@ -1129,7 +1496,13 @@ function initPointerInteraction(){
     canvas.addEventListener('wheel', function(e){
         e.preventDefault();
         if (e.ctrlKey || e.metaKey) {
-            camRadius = camRadius * (e.deltaY > 0 ? 1.1 : 1.0 / 1.1);
+            if (freeCam.active) {
+                freeFlySpeed = Math.max(FREE_FLY_SPEED_MIN,
+                                        Math.min(FREE_FLY_SPEED_MAX,
+                                                 freeFlySpeed * (e.deltaY > 0 ? 0.9 : 1.1)));
+            } else {
+                camRadius = camRadius * (e.deltaY > 0 ? 1.1 : 1.0 / 1.1);
+            }
         } else {
             // 向前滚（deltaY < 0）放大，向后滚缩小；范围与侧栏滑块保持一致
             modelScale = Math.max(MODEL_SCALE_MIN, Math.min(MODEL_SCALE_MAX,
@@ -1145,7 +1518,8 @@ function endDrag(){
     dragging = DRAG_NONE;
     trackballDown = null;
     modelRotDown = null;
-    cameraDragLast = null;
+    orbitGrabDown = null;
+    freeLookDown = null;
     translateDownScreen = null;
     translateDownTrans = null;
 }
@@ -1226,26 +1600,93 @@ function translateObjectByDrag(e){
     render();
 }
 
-/* 右键拖动：绕世界坐标轴刚体旋转相机（每像素 0.3°）。
- *   - 横向 → 绕世界 Y 轴（与 A/D 同一函数），向右拖动时物体右移；
- *   - 纵向 → 绕世界 X 轴（与 W/S 同一函数），向下拖动时物体下移。
- * 关键点：
- *  1) 转动轴严格取世界 X / Y 轴，不能"只改 φ 再按球面公式重算 up"。
- *     那样 up 永远落在"世界 Y 轴与视线决定"的竖直平面内，
- *     世界 Y 轴在屏幕上也就永远是一条竖直的线——无论怎么拖都只在
- *     "垂直于屏幕"的那个平面里翻，这正是本次要修的问题。
- *  2) eye 与 up 作为刚体一起转（rotateCameraAboutWorldX/Y 内部同时改两者，
- *     并把结果写入 camUp），两者的 90° 夹角保持不变，转动轴不会漂移；
- *     世界 Y 轴因此可以倾斜出竖直平面，在屏幕上出现横向分量。
- *  3) 每步都是刚体旋转且严格可逆，拖动回起点时姿态精确复原。 */
+/* ==================================================================
+ * 右键拖动（两种模式，都是"绝对映射"：由按下点算总位移，可逆）
+ *
+ * A. 轨道模式 —— 屏幕平面内的"抓取旋转"
+ * 旧实现的纵向分量固定绕世界 X 轴、横向固定绕世界 Y 轴。在等轴测以外的
+ * 视角下，世界 X/Y 轴在屏幕上的投影是斜的，于是"向上拖"会把画面绕着一根
+ * 斜轴翻滚，用户说的"某些角度不符合预期"正是这个原因——屏幕拖动本来不该
+ * 与某一根世界轴绑死。
+ * 新做法把拖动映射到"屏幕平面内、垂直于拖动方向、过原点"的那根轴：
+ *     A = u·dx + r·dy          （r / u 为按下时的屏幕右 / 上向量，均在世界系中给出）
+ *     转角 = -0.3°/px × 拖动总长
+ * 负号使被"抓住"的景物跟随鼠标移动（右拖→景物右移、下拖→景物下移），
+ * 与拖动方向无关地保持同一手感；转轴永远位于屏幕平面内，因此不会出现斜轴漂移。
+ * 另外 eye 与 up 始终作为刚体一起转并写入 camUp，两者的 90° 夹角不变；
+ * 由按下时的快照直接重算，拖回起点时姿态精确复原。
+ *
+ * B. 自由视角 —— 第一人称转头
+ * 偏航绕世界 Y、俯仰绕相机右向量，俯仰限 ±85°，上向量每帧由视线重建
+ * （不累积滚转）。同样用按下时的视线做快照，拖动总位移决定朝向。
+ * ================================================================== */
 function rotateCameraByDrag(e){
-    if (!cameraDragLast) return;
-    var dx = e.clientX - cameraDragLast.x;
-    var dy = e.clientY - cameraDragLast.y;
-    cameraDragLast = { x: e.clientX, y: e.clientY };
-    if (dx) rotateCameraAboutWorldY(-dx * 0.3);
-    if (dy) rotateCameraAboutWorldX(-dy * 0.3);
+    if (freeCam.active) {
+        freeLookByDrag(e);
+    } else {
+        orbitGrabByDrag(e);
+    }
+}
+
+/* 绕任意单位轴旋转向量（Rodrigues 公式），用于"屏幕平面内任意轴"的刚体旋转 */
+function rotateVecAboutAxis(v, axis, deg){
+    var c = Math.cos(radians(deg)), s = Math.sin(radians(deg));
+    var k = cross(axis, v);
+    var d = dot(axis, v) * (1.0 - c);
+    return vec3(v[0] * c + k[0] * s + axis[0] * d,
+                v[1] * c + k[1] * s + axis[1] * d,
+                v[2] * c + k[2] * s + axis[2] * d);
+}
+
+function orbitGrabByDrag(e){
+    if (!orbitGrabDown) return;
+
+    var dx = e.clientX - orbitGrabDown.x;
+    var dy = e.clientY - orbitGrabDown.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+
+    var e0 = orbitGrabDown.eye, u0 = orbitGrabDown.up;
+    if (dist < 1e-6) {
+        /* 拖回按下点：位移为零，直接取快照（避免单位化 0 向量时出现 NaN） */
+        setFromEyeDir(e0);
+        camUp = vec3(u0[0], u0[1], u0[2]);
+    } else {
+        /* 由快照的 eye（指向观察者的反视线）与 up 求出屏幕右向量：
+         *   右向量 r = u × e，上向量 = u（两者都垂直于视线，张成屏幕平面） */
+        var r = normalize(cross(u0, e0));
+        var axis = normalize(vec3(u0[0] * dx + r[0] * dy,
+                                  u0[1] * dx + r[1] * dy,
+                                  u0[2] * dx + r[2] * dy));
+        var angle = -0.3 * dist;                      // 0.3°/px，负号=景物跟随鼠标
+        var e2 = rotateVecAboutAxis(e0, axis, angle);
+        var u2 = rotateVecAboutAxis(u0, axis, angle);
+        setFromEyeDir(e2);
+        camUp = u2;
+    }
+
     clampCamera();
+    syncUI();
+    render();
+}
+
+/* 自由视角转头（绝对映射）：由按下时的视线与总位移直接算出新朝向 */
+function freeLookByDrag(e){
+    if (!freeLookDown) return;
+    var dx = e.clientX - freeLookDown.x;
+    var dy = e.clientY - freeLookDown.y;
+
+    var f0 = freeLookDown.forward;
+    /* 1) 偏航：绕世界 Y 轴把视线水平方向转过 -dx·0.3°（右拖＝向右看） */
+    var a = -dx * FREE_LOOK_SPEED;
+    var c = Math.cos(radians(a)), s = Math.sin(radians(a));
+    var yawed = vec3(f0[0] * c + f0[2] * s, f0[1], -f0[0] * s + f0[2] * c);
+
+    /* 2) 俯仰：仰角随下拖减小（下拖＝向下看），并限制在 ±85° */
+    var elev = Math.asin(Math.max(-1.0, Math.min(1.0, yawed[1]))) * 180.0 / Math.PI
+               - dy * FREE_LOOK_SPEED;
+    elev = Math.max(-FREE_PITCH_LIMIT, Math.min(FREE_PITCH_LIMIT, elev));
+
+    setFreeForward(yawed, elev);
     syncUI();
     render();
 }

@@ -192,6 +192,10 @@
             color: #1f8a4c;
             border-color: rgba(31,138,76,0.35);
         }
+        #modeBadge.is-free{
+            color: #b3541e;
+            border-color: rgba(179,84,30,0.4);
+        }
 
         /* ------------------------------------------------------------------
          * 右侧设置面板
@@ -396,7 +400,7 @@
                 <svg viewBox="0 0 24 24"><rect x="3" y="8" width="12" height="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 8 V3 H21 V13 H14" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
                 <span id="btnProjLabel">投影：正交</span>
             </button>
-            <button type="button" id="btnReset" class="btn">
+            <button type="button" id="btnReset" class="btn" title="复位（快捷键 R）">
                 <svg viewBox="0 0 24 24"><path d="M4 12 A8 8 0 1 1 8 19" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 6 L4 12 L10 12" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
                 <span>复位</span>
             </button>
@@ -503,16 +507,19 @@
                 <div class="panel-content">
                     <div class="shortcut-row"><span class="kbd">左键拖动</span><span class="shortcut-desc">旋转物体／平移模式下移动物体</span></div>
                     <div class="shortcut-row"><span class="kbd">中键</span><span class="shortcut-desc">切换左键：旋转 ⇄ 平移</span></div>
-                    <div class="shortcut-row"><span class="kbd">右键拖动</span><span class="shortcut-desc">旋转相机</span></div>
+                    <div class="shortcut-row"><span class="kbd">右键拖动</span><span class="shortcut-desc">轨道：抓取旋转视图（拖回起点即复原）／自由视角：转头</span></div>
                     <div class="shortcut-row"><span class="kbd">滚轮</span><span class="shortcut-desc">缩放物体</span></div>
-                    <div class="shortcut-row"><span class="kbd">Ctrl</span><span class="kbd">滚轮</span><span class="shortcut-desc">推拉相机距离</span></div>
+                    <div class="shortcut-row"><span class="kbd">Ctrl</span><span class="kbd">滚轮</span><span class="shortcut-desc">推拉相机距离／自由视角：调节飞行速度</span></div>
                     <div class="shortcut-row"><span class="kbd">↑</span><span class="kbd">↓</span><span class="kbd">←</span><span class="kbd">→</span><span class="shortcut-desc">沿世界坐标轴平移物体</span></div>
                     <div class="shortcut-row"><span class="kbd">Z</span><span class="kbd">C</span><span class="shortcut-desc">物体放大／缩小</span></div>
-                    <div class="shortcut-row"><span class="kbd">W</span><span class="kbd">S</span><span class="shortcut-desc">相机绕世界 X 轴旋转（可按住）</span></div>
-                    <div class="shortcut-row"><span class="kbd">A</span><span class="kbd">D</span><span class="shortcut-desc">相机绕世界 Y 轴旋转（可按住）</span></div>
-                    <div class="shortcut-row"><span class="kbd">P</span><span class="shortcut-desc">切换正交／透视</span></div>
+                    <div class="shortcut-row"><span class="kbd">W</span><span class="kbd">S</span><span class="shortcut-desc">轨道：绕世界 X 轴旋转／自由视角：沿视线前后飞行</span></div>
+                    <div class="shortcut-row"><span class="kbd">A</span><span class="kbd">D</span><span class="shortcut-desc">轨道：绕世界 Y 轴旋转／自由视角：左右平移</span></div>
+                    <div class="shortcut-row"><span class="kbd">Q</span><span class="kbd">E</span><span class="shortcut-desc">轨道：绕世界 Z 轴旋转（可按住）</span></div>
+                    <div class="shortcut-row"><span class="kbd">Shift</span><span class="kbd">X</span><span class="shortcut-desc">自由视角：上升／下降（空格长按同效）</span></div>
+                    <div class="shortcut-row"><span class="kbd">空格</span><span class="shortcut-desc">双击切换自由视角／自由视角内按住 0.25 s 上升</span></div>
+                    <div class="shortcut-row"><span class="kbd">R</span><span class="shortcut-desc">复位（退出自由视角并回到默认视角）</span></div>
+                    <div class="shortcut-row"><span class="kbd">P</span><span class="shortcut-desc">切换正交／透视（自由视角固定透视，按钮置灰）</span></div>
                     <div class="shortcut-row"><span class="kbd">M</span><span class="kbd">N</span><span class="shortcut-desc">调整视野角 fov</span></div>
-                    <div class="shortcut-row"><span class="kbd">空格</span><span class="shortcut-desc">复位</span></div>
                 </div>
             </section>
         </aside>
@@ -523,6 +530,8 @@
          ================================================================== -->
     <footer id="status-bar">
         <span>投影 <b id="stProjection">正交</b></span>
+        <span>视角 <b id="stCamMode">轨道</b></span>
+        <span id="stSpeedWrap" style="display:none">飞行速度 <b id="valFlySpeed">6.0</b></span>
         <span>左键 <b id="stLeftMode">旋转</b></span>
         <span>模型 <b id="stModel">墨西哥帽</b></span>
         <span>平移 <b id="stTrans">(0.0, 0.0, 0.0)</b></span>
