@@ -11,9 +11,13 @@ $targets = Get-ChildItem -Path $root -Recurse -File -Include *.css, *.js, *.html
     $_.FullName -notmatch '\\fonts\\'
   }
 
-# Only the current experiment 3 deliverables, not old experiments.
+# Experiment 3 deliverables, plus the design wireframe HTML at depth <= 3
+# (project root, 实验/<n>/ alike). Deeper files are shipping code of an old experiment.
 $externalHtml = Get-ChildItem -Path $projectRoot -Recurse -File -Filter *.html |
-  Where-Object { $_.DirectoryName -match '\\3$' }
+  Where-Object {
+    $rel = $_.FullName.Substring($projectRoot.Length + 1)
+    ($_.DirectoryName -match '\\3$') -or (($rel -split '\\').Count -le 3)
+  }
 $targets += $externalHtml
 
 $externalCode = Get-ChildItem -Path $projectRoot -Recurse -File |

@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="archive">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>实验一 · 交互式图形程序 · 设计线稿</title>
+  <link rel="stylesheet" href="../../ui-system/system.css">
+  <link rel="stylesheet" href="../../ui-system/sheet.css">
+  <style>
+    @layer plate {
+      /* ------------------------------------------------------ 屏幕定稿图 */
+
+      .screen-figure {
+        position: relative;
+        margin: 0;
+      }
+
+      .screen-figure .crop {
+        width: 10px;
+        height: 10px;
+      }
+
+      .screen-figure .crop--tl { top: -6px; left: -6px; }
+      .screen-figure .crop--tr { top: -6px; right: -6px; }
+      .screen-figure .crop--bl { bottom: -6px; left: -6px; }
+      .screen-figure .crop--br { right: -6px; bottom: -6px; }
+
+      .screen {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) var(--ui-rack-w);
+        grid-template-rows: var(--ui-topbar-h) minmax(0, 1fr) var(--ui-ledge-h);
+        grid-template-areas:
+          "top top"
+          "stage rack"
+          "ledge ledge";
+        width: 1180px;
+        height: 700px;
+        overflow: hidden;
+        background: var(--ui-bg);
+        outline: 1px solid var(--ui-line-strong);
+      }
+
+      .screen__top {
+        grid-area: top;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 0 14px;
+        background: var(--ui-bar);
+        border-bottom: 1px solid var(--ui-line);
+      }
+
+      .screen__brand {
+        font-family: var(--ui-font-display);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+      }
+
+      .screen__brand span {
+        margin-left: 8px;
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-weight: 400;
+        letter-spacing: 0.1em;
+        color: var(--ui-faint);
+      }
+
+      .screen__rule {
+        flex: 1;
+        height: 1px;
+        background: var(--ui-line);
+      }
+
+      .screen__hints {
+        display: flex;
+        gap: 12px;
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.05em;
+        color: var(--ui-muted);
+      }
+
+      .screen__hints b {
+        margin-right: 4px;
+        padding: 1px 4px;
+        border: 1px solid var(--ui-line-strong);
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-weight: 400;
+        color: var(--ui-ink);
+      }
+
+      .screen__stage {
+        grid-area: stage;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .screen__rack {
+        grid-area: rack;
+        display: flex;
+        flex-direction: column;
+        border-left: 1px solid var(--ui-line);
+        background: var(--ui-surface);
+      }
+
+      .rack__head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 10px 12px 8px;
+        border-bottom: 1px solid var(--ui-line-strong);
+      }
+
+      .rack__head b {
+        font-family: var(--ui-font-display);
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.1em;
+      }
+
+      .rack__head span {
+        margin-left: auto;
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        color: var(--ui-faint);
+      }
+
+      .rack__group {
+        padding: 8px 12px 10px;
+        border-bottom: 1px solid var(--ui-line);
+      }
+
+      .rack__group-head {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin-bottom: 7px;
+      }
+
+      .rack__no {
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        color: var(--ui-accent);
+      }
+
+      .rack__name {
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+      }
+
+      .rack__value {
+        margin-left: auto;
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-variant-numeric: tabular-nums;
+        color: var(--ui-muted);
+      }
+
+      .rack__bank {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border: 1px solid var(--ui-line);
+      }
+
+      .rack__bank span {
+        padding: 5px 0;
+        border-left: 1px solid var(--ui-line);
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        color: var(--ui-muted);
+        text-align: center;
+      }
+
+      .rack__bank span:first-child { border-left: 0; }
+
+      .rack__bank span.is-on {
+        box-shadow: inset 0 -1px 0 var(--ui-accent);
+        color: var(--ui-ink);
+      }
+
+      .rack__row {
+        display: grid;
+        grid-template-columns: 54px minmax(0, 1fr) 46px;
+        gap: 6px;
+        align-items: center;
+        padding: 5px 0;
+        border-top: 1px solid var(--ui-line);
+      }
+
+      .rack__row:first-of-type { border-top: 0; }
+
+      .rack__label {
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.03em;
+        color: var(--ui-muted);
+        border-bottom: 1px solid var(--ui-line);
+        padding-bottom: 1px;
+      }
+
+      .rack__track {
+        position: relative;
+        height: 9px;
+        border-top: 1px solid var(--ui-line-strong);
+      }
+
+      .rack__track::before {
+        position: absolute;
+        top: -2px;
+        left: var(--p, 50%);
+        width: 1px;
+        height: 5px;
+        background: var(--ui-accent);
+        content: "";
+      }
+
+      .rack__track--center::after {
+        position: absolute;
+        top: -3px;
+        left: 50%;
+        width: 1px;
+        height: 7px;
+        background: var(--ui-line-strong);
+        content: "";
+      }
+
+      .rack__read {
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-variant-numeric: tabular-nums;
+        color: var(--ui-ink);
+        text-align: right;
+      }
+
+      .rack__key {
+        display: grid;
+        grid-template-columns: 30px minmax(0, 1fr);
+        gap: 6px;
+        align-items: center;
+        padding: 4px 0 0;
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        color: var(--ui-muted);
+      }
+
+      .rack__key b {
+        padding: 1px 0;
+        border: 1px solid var(--ui-line-strong);
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-weight: 400;
+        color: var(--ui-ink);
+        text-align: center;
+      }
+
+      .screen__ledge {
+        grid-area: ledge;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        border-top: 1px solid var(--ui-line);
+        background: var(--ui-bar);
+      }
+
+      .ledge__cell {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 10px;
+        border-left: 1px solid var(--ui-line);
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        color: var(--ui-faint);
+      }
+
+      .ledge__cell:first-child { border-left: 0; }
+
+      .ledge__cell b {
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
+        color: var(--ui-ink);
+      }
+
+      /* ---------------------------------------------------------- 标注 */
+
+      .mk {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        width: 15px;
+        height: 15px;
+        border: 1px solid var(--ui-accent);
+        background: var(--ui-bg);
+        font-family: var(--ui-font-mono);
+        font-size: 7px;
+        line-height: 1;
+        color: var(--ui-accent);
+        z-index: 2;
+      }
+
+      /* ------------------------------------------------------ 三态线框 */
+
+      .state-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 22px;
+      }
+
+      .wire--s1 {
+        grid-template-columns: minmax(0, 1fr) 84px;
+        grid-template-rows: 18px minmax(0, 1fr) 14px;
+        grid-template-areas:
+          "t t"
+          "s r"
+          "l l";
+      }
+
+      .wire__area-top { grid-area: t; border-bottom: 1px solid var(--ui-line); }
+      .wire__area-stage { grid-area: s; position: relative; }
+      .wire__area-rack { grid-area: r; }
+      .wire__area-ledge { grid-area: l; border-top: 1px solid var(--ui-line); }
+
+      .wire--s1 .wire__rack {
+        padding: 5px;
+      }
+
+      .wire__cross {
+        position: absolute;
+        top: 44%;
+        left: 46%;
+        width: 16px;
+        height: 16px;
+        border-top: 1px solid var(--ui-accent);
+        border-left: 1px solid var(--ui-accent);
+        transform: translate(-50%, -50%) rotate(45deg);
+      }
+
+      .zoom-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .zoom-cell {
+        padding: 12px;
+        border: 1px solid var(--ui-line);
+      }
+
+      .zoom-cell h3 {
+        margin: 0 0 8px;
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-weight: 400;
+        letter-spacing: 0.14em;
+        color: var(--ui-faint);
+      }
+
+      .zoom-cell p {
+        margin: 8px 0 0;
+        font-size: 9px;
+        line-height: 1.55;
+        color: var(--ui-muted);
+      }
+
+      .gauge-fig {
+        display: grid;
+        gap: 6px;
+        padding: 4px 0 10px;
+      }
+
+      .gauge-fig .rack__track { height: 12px; }
+
+      .gauge-scale {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        color: var(--ui-faint);
+      }
+
+      .gauge-scale b { color: var(--ui-accent); font-weight: 400; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="sheets">
+    <div class="doc-head">
+      <span>HW1 · 交互式图形程序 / 设计线稿</span>
+      <span>REV A · 2026-11-23 · 依据 ui-system design.md V2 与 system.css</span>
+    </div>
+
+    <!-- ======================================================= SHEET 01 -->
+    <section class="sheet" id="sheet-01">
+      <span class="crop crop--tl"></span>
+      <span class="crop crop--tr"></span>
+      <span class="crop crop--bl"></span>
+      <span class="crop crop--br"></span>
+
+      <header class="sheet__head">
+        <div class="doc-brand">
+          <span class="doc-brand__name">CANVAS 2D</span>
+          <span class="doc-brand__sub">计算机图形学 · 实验一 / 交互式图形程序</span>
+        </div>
+        <h1 class="doc-title">屏幕定稿<small>SCREEN / SETTLED</small></h1>
+        <div class="doc-meta">
+          SHEET <b>01</b> / 02<br>
+          SCALE 1:1 · 1180 × 700<br>
+          REV A · 2026-11-23
+        </div>
+      </header>
+
+      <div class="sheet__body sheet--split">
+        <div>
+          <figure class="screen-figure">
+            <span class="crop crop--tl"></span>
+            <span class="crop crop--tr"></span>
+            <span class="crop crop--bl"></span>
+            <span class="crop crop--br"></span>
+
+            <div class="screen">
+              <span class="mk" style="top: 14px; left: 10px;">01</span>
+              <span class="mk" style="top: 14px; right: 318px;">02</span>
+              <span class="mk" style="top: 96px; right: 288px;">03</span>
+              <span class="mk" style="top: 232px; right: 288px;">04</span>
+              <span class="mk" style="top: 300px; left: 250px;">05</span>
+              <span class="mk" style="bottom: 8px; left: 10px;">06</span>
+
+              <div class="screen__top">
+                <div class="screen__brand">CANVAS 2D<span>HW1 · SHEET 01 / REV A</span></div>
+                <span class="screen__rule"></span>
+                <div class="screen__hints">
+                  <span><b>1–4</b>图形</span>
+                  <span><b>G</b>手绘</span>
+                  <span><b>X</b>中心</span>
+                  <span><b>Space</b>停</span>
+                  <span><b>R</b>复位</span>
+                </div>
+              </div>
+
+              <div class="screen__stage">
+                <svg viewBox="0 0 864 622" width="864" height="622" role="img" aria-label="画布线稿：五角星、旋转中心与缓动轨迹">
+                  <style>
+                    .cv-grid line { stroke: rgba(231, 226, 216, .07); stroke-width: 1; }
+                    .cv-axis line { stroke: rgba(231, 226, 216, .16); stroke-width: 1; }
+                    .cv-star { fill: var(--ui-scene-flower-a); fill-opacity: .16; stroke: var(--ui-accent); stroke-width: 1.25; }
+                    .cv-path { fill: none; stroke: var(--ui-cool); stroke-width: 1; stroke-dasharray: 3 4; }
+                    .cv-center line { stroke: var(--ui-accent); stroke-width: 1.5; }
+                    .cv-center circle { fill: none; stroke: var(--ui-accent); stroke-width: 1; }
+                    .cv-note { font-family: var(--ui-font-mono); font-size: 9px; letter-spacing: .1em; fill: var(--ui-faint); }
+                    .cv-note--ink { fill: var(--ui-muted); }
+                    .cv-arc { fill: none; stroke: var(--ui-accent); stroke-width: 1; }
+                  </style>
+
+                  <g class="cv-grid">
+                    <line x1="0" y1="120" x2="864" y2="120"/><line x1="0" y1="200" x2="864" y2="200"/>
+                    <line x1="0" y1="280" x2="864" y2="280"/><line x1="0" y1="360" x2="864" y2="360"/>
+                    <line x1="0" y1="440" x2="864" y2="440"/><line x1="0" y1="520" x2="864" y2="520"/>
+                    <line x1="120" y1="0" x2="120" y2="622"/><line x1="240" y1="0" x2="240" y2="622"/>
+                    <line x1="360" y1="0" x2="360" y2="622"/><line x1="480" y1="0" x2="480" y2="622"/>
+                    <line x1="600" y1="0" x2="600" y2="622"/><line x1="720" y1="0" x2="720" y2="622"/>
+                  </g>
+
+                  <g class="cv-axis">
+                    <line x1="0" y1="311" x2="864" y2="311"/>
+                    <line x1="432" y1="0" x2="432" y2="622"/>
+                  </g>
+
+                  <path class="cv-path" d="M 96 470 C 240 470, 300 380, 432 311"/>
+
+                  <circle class="cv-arc" cx="432" cy="311" r="168" stroke-dasharray="1 6"/>
+
+                  <polygon class="cv-star"
+                    points="432,201 458,275 537,277 475,325 497,400 432,356 367,400 389,325 327,277 406,275"/>
+
+                  <g class="cv-center">
+                    <line x1="432" y1="291" x2="432" y2="331"/>
+                    <line x1="412" y1="311" x2="452" y2="311"/>
+                    <circle cx="432" cy="311" r="6"/>
+                  </g>
+
+                  <text class="cv-note cv-note--ink" x="446" y="286">旋转中心 (432, 311)</text>
+                  <text class="cv-note" x="104" y="462">起始位</text>
+                  <text class="cv-note" x="470" y="150">轨迹 · 缓动 3·t²−2·t³</text>
+                  <text class="cv-note" x="96" y="96">画布 864 × 622 · 网格 80px 次级 / 432 主轴</text>
+                </svg>
+              </div>
+
+              <div class="screen__rack">
+                <div class="rack__head"><b>参数面板</b><span>01–03</span></div>
+
+                <div class="rack__group">
+                  <div class="rack__group-head">
+                    <span class="rack__no">01</span><span class="rack__name">图形</span>
+                    <span class="rack__value">五角星</span>
+                  </div>
+                  <div class="rack__bank">
+                    <span>矩形</span><span>三角形</span><span>圆形</span><span class="is-on">五角星</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">边长</span>
+                    <span class="rack__track" style="--p: 46%"></span>
+                    <span class="rack__read">320 px</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">填充</span>
+                    <span class="rack__track" style="--p: 62%"></span>
+                    <span class="rack__read">0.62</span>
+                  </div>
+                </div>
+
+                <div class="rack__group">
+                  <div class="rack__group-head">
+                    <span class="rack__no">02</span><span class="rack__name">旋转</span>
+                    <span class="rack__value">顺时针 60°/s</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">转速</span>
+                    <span class="rack__track rack__track--center" style="--p: 62%"></span>
+                    <span class="rack__read">+60</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">中心 X</span>
+                    <span class="rack__track" style="--p: 50%"></span>
+                    <span class="rack__read">432</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">中心 Y</span>
+                    <span class="rack__track" style="--p: 50%"></span>
+                    <span class="rack__read">311</span>
+                  </div>
+                  <div class="rack__key"><b>X</b><span>在画布上点选旋转中心</span></div>
+                </div>
+
+                <div class="rack__group">
+                  <div class="rack__group-head">
+                    <span class="rack__no">03</span><span class="rack__name">手绘</span>
+                    <span class="rack__value">关闭</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">笔画</span>
+                    <span class="rack__track" style="--p: 0%"></span>
+                    <span class="rack__read">0</span>
+                  </div>
+                  <div class="rack__key"><b>G</b><span>进入手绘，再按退出</span></div>
+                  <div class="rack__key"><b>Del</b><span>清空当前笔画</span></div>
+                </div>
+              </div>
+
+              <div class="screen__ledge">
+                <div class="ledge__cell">图形 <b>五角星</b></div>
+                <div class="ledge__cell">笔画 <b>0</b></div>
+                <div class="ledge__cell">转速 <b>+60 °/s</b></div>
+                <div class="ledge__cell">中心 <b>(432, 311)</b></div>
+                <div class="ledge__cell">帧时 <b>1.8 ms</b></div>
+              </div>
+            </div>
+          </figure>
+
+          <div class="dim">1180 × 700 · 顶栏 44 / 抽屉 316 / 账本 34</div>
+
+          <div class="layout-grid">
+            <div class="block-head">
+              <span class="block-no">A</span>
+              <h2>版式网格</h2>
+              <span class="block-en">GRID / STAGE</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 316px; grid-template-rows: 44px 380px 34px; border: 1px solid var(--ui-line);">
+              <div class="gd" style="grid-column: 1 / -1; border-bottom: 1px solid var(--ui-line);">TOPBAR 44 · 品牌 / 键位提示</div>
+              <div class="gd" style="border-right: 1px solid var(--ui-line);">STAGE 1fr · 画布与画布内标注</div>
+              <div class="gd">RACK 316 · 三组抽屉</div>
+              <div class="gd" style="grid-column: 1 / -1; border-top: 1px solid var(--ui-line);">LEDGE 34 · 五格账本</div>
+            </div>
+            <div class="layout-grid__notes">
+              <span>抽屉宽度吃 --ui-rack-w</span>
+              <span>账本格数与抽屉组数解耦：5 格固定</span>
+              <span>画布尺寸取 drawingBuffer，DPR ≤ 2</span>
+            </div>
+          </div>
+        </div>
+
+        <aside class="sheet-aside">
+          <div class="aside-block">
+            <h2><span>01</span>图纸信息</h2>
+            <dl class="spec-list">
+              <div><dt>用途</dt><dd>实验一的形状切换、缓动平移、旋转与手绘</dd></div>
+              <div><dt>结构</dt><dd>顶栏键位 + 画布 + 三组抽屉 + 五格账本</dd></div>
+              <div><dt>改动</dt><dd>白色悬浮工具条改为档案式抽屉，滑杆带单位读数</dd></div>
+              <div><dt>保留</dt><dd>画布上的旋转中心十字与「调整中心」交互</dd></div>
+              <div><dt>键位</dt><dd>可见 5 组，其余进命令索引</dd></div>
+            </dl>
+          </div>
+
+          <div class="aside-block">
+            <h2><span>02</span>色板</h2>
+            <div class="swatch-row"><span class="swatch" style="--c: #121417"></span><b>--ui-bg</b><span>画布底</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #191c20"></span><b>--ui-surface</b><span>抽屉</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #e7e2d8"></span><b>--ui-ink</b><span>读数</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #67665f"></span><b>--ui-faint</b><span>编号</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #c9a227"></span><b>--ui-accent</b><span>中心 / 选中</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #8c9a8e"></span><b>--ui-cool</b><span>轨迹</span></div>
+          </div>
+
+          <div class="aside-block">
+            <h2><span>03</span>字级</h2>
+            <div class="type-row">
+              <div class="type-sample--display">CANVAS 2D</div>
+              <p>Spectral 600 · 11px · 字距 .16em</p>
+            </div>
+            <div class="type-row">
+              <div class="type-sample--mono">+60 °/s · (432, 311)</div>
+              <p>Iosevka 400 · 9px · tabular-nums</p>
+            </div>
+            <div class="type-row">
+              <div class="type-sample--body">在画布上点选旋转中心，标记随之移动。</div>
+              <p>WenKai 400 · 9px · 行高 1.55</p>
+            </div>
+          </div>
+
+          <div class="aside-block">
+            <h2><span>04</span>标注</h2>
+            <ol class="callouts">
+              <li><b>01</b>顶栏只放品牌与 5 组键位，动作收进命令索引</li>
+              <li><b>02</b>抽屉宽 316，组头三段：编号 / 组名 / 当前值</li>
+              <li><b>03</b>档位用 1px 方格，选中只加底部 1px 旧金</li>
+              <li><b>04</b>滑杆一律「标签 + 轨道 + 读数带单位」三列</li>
+              <li><b>05</b>画布内标注只留旋转中心与轨迹，字 8px faint</li>
+              <li><b>06</b>账本五格：图形 / 笔画 / 转速 / 中心 / 帧时</li>
+            </ol>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="sheet__foot">
+        <span>DRAWING 01 · 屏幕定稿（1:1）</span>
+        <span>说明：字号沿用 V2 纸级，不新增 token</span>
+        <span>PG 1 / 2</span>
+      </footer>
+    </section>
+
+    <!-- ======================================================= SHEET 02 -->
+    <section class="sheet" id="sheet-02">
+      <span class="crop crop--tl"></span>
+      <span class="crop crop--tr"></span>
+      <span class="crop crop--bl"></span>
+      <span class="crop crop--br"></span>
+
+      <header class="sheet__head">
+        <div class="doc-brand">
+          <span class="doc-brand__name">CANVAS 2D</span>
+          <span class="doc-brand__sub">计算机图形学 · 实验一 / 控件与状态</span>
+        </div>
+        <h1 class="doc-title">控件与三态<small>PARTS / STATES</small></h1>
+        <div class="doc-meta">
+          SHEET <b>02</b> / 02<br>
+          PARTS 04 · STATES 03<br>
+          REV A · 2026-11-23
+        </div>
+      </header>
+
+      <div class="sheet__body sheet--stack">
+        <section>
+          <div class="block-head">
+            <span class="block-no">B</span>
+            <h2>三种状态</h2>
+            <span class="block-en">STATES</span>
+          </div>
+
+          <div class="state-strip">
+            <figure class="state-fig">
+              <div class="wire wire--s1">
+                <div class="wire__area-top"></div>
+                <div class="wire__area-stage">
+                  <div class="wire__cross"></div>
+                  <span class="wire__stage" style="position: absolute; left: 8px; bottom: 8px;">静止 · 1.8 ms</span>
+                </div>
+                <div class="wire__area-rack wire__rack"><i>01</i><i>02</i><i>03</i></div>
+                <div class="wire__area-ledge"></div>
+              </div>
+              <figcaption><b>a</b>静止：中心十字常显，转速读数 0</figcaption>
+            </figure>
+
+            <figure class="state-fig">
+              <div class="wire wire--s1" style="box-shadow: inset 0 0 0 1px var(--ui-line-strong);">
+                <div class="wire__area-top"></div>
+                <div class="wire__area-stage" style="background: var(--ui-surface);">
+                  <div class="wire__cross" style="transform: translate(-50%, -50%) rotate(30deg);"></div>
+                  <span class="wire__stage" style="position: absolute; left: 8px; bottom: 8px;">旋转中 · +60</span>
+                </div>
+                <div class="wire__area-rack wire__rack"><i>01</i><i>02</i><i>03</i></div>
+                <div class="wire__area-ledge"></div>
+              </div>
+              <figcaption><b>b</b>旋转中：中心不动，图形绕心转动</figcaption>
+            </figure>
+
+            <figure class="state-fig">
+              <div class="wire wire--s1">
+                <div class="wire__area-top"></div>
+                <div class="wire__area-stage">
+                  <svg viewBox="0 0 300 160" width="100%" height="100%" aria-label="手绘态线稿">
+                    <path d="M 30 120 C 70 60, 110 140, 150 80 S 220 40, 268 96"
+                          fill="none" stroke="var(--ui-cool)" stroke-width="1.5"/>
+                    <circle cx="30" cy="120" r="2" fill="var(--ui-accent)"/>
+                    <circle cx="268" cy="96" r="2" fill="var(--ui-accent)"/>
+                  </svg>
+                </div>
+                <div class="wire__area-rack wire__rack" style="box-shadow: inset 0 0 0 1px var(--ui-accent);"><i>03</i><i>清空</i></div>
+                <div class="wire__area-ledge"></div>
+              </div>
+              <figcaption><b>c</b>手绘：笔画数进账本，清空键显形</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">C</span>
+            <h2>控件解剖</h2>
+            <span class="block-en">PARTS</span>
+          </div>
+
+          <div class="zoom-strip">
+            <div class="zoom-cell">
+              <h3>BANK · 四档图形</h3>
+              <div class="rack__bank">
+                <span>矩形</span><span>三角形</span><span>圆形</span><span class="is-on">五角星</span>
+              </div>
+              <p>1px 方格，选中只加底部 1px 旧金；不加圆角、不加底色填充。</p>
+            </div>
+
+            <div class="zoom-cell">
+              <h3>GAUGE · 双向转速</h3>
+              <div class="gauge-fig">
+                <span class="rack__track rack__track--center" style="--p: 62%"></span>
+                <div class="gauge-scale"><b>逆 −360</b><span>0</span><span>顺 +360</span></div>
+              </div>
+              <p>中点 0 画出短刻度；读数带单位，正负号即方向，不再另说「顺/逆」二字。</p>
+            </div>
+
+            <div class="zoom-cell">
+              <h3>READOUT · 中心坐标</h3>
+              <div class="rack__row" style="border-top: 0;">
+                <span class="rack__label">中心 X</span>
+                <span class="rack__track" style="--p: 50%"></span>
+                <span class="rack__read">432</span>
+              </div>
+              <p>点选中心后写回读数，画布十字与读数同帧更新，不出现两处不一致。</p>
+            </div>
+
+            <div class="zoom-cell">
+              <h3>KEY · 键位行</h3>
+              <div class="rack__key" style="padding-top: 0;"><b>Del</b><span>清空当前笔画</span></div>
+              <div class="rack__key"><b>G</b><span>进入手绘，再按退出</span></div>
+              <p>键帽 1px 描边等宽字；只在所属分组出现，不做全局键位墙。</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">D</span>
+            <h2>与现版本对照</h2>
+            <span class="block-en">MIGRATION</span>
+          </div>
+          <table class="state-table">
+            <thead>
+              <tr><th>现版本</th><th>线稿做法</th><th>理由</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>白色悬浮工具条（三行按钮）</td><td>顶栏键位提示 + 右侧三组抽屉</td><td>悬浮条压在画布上，遮住图形</td></tr>
+              <tr><td>按钮圆角 6px + 阴影</td><td>1px 方格档位，无圆角无阴影</td><td>V2 反面对角清单</td></tr>
+              <tr><td>裸滑杆 + 「停止」文字</td><td>三列滑杆：标签 / 轨道 / 单位读数</td><td>读数可比，可写进报告</td></tr>
+              <tr><td>激活态蓝底白字</td><td>底部 1px 旧金 + 文字提亮</td><td>旧金只做标注与选中</td></tr>
+              <tr><td>旋转中心仅画布上一点</td><td>画布十字 + 抽屉两行坐标读数</td><td>同一数据两处可见</td></tr>
+              <tr><td>无性能读数</td><td>账本末格显示帧时</td><td>手绘笔画多时能看出来</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">E</span>
+            <h2>键位预算与验收</h2>
+            <span class="block-en">KEYS / ACCEPTANCE</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 26px;">
+            <table class="state-table">
+              <thead><tr><th>键</th><th>动作</th></tr></thead>
+              <tbody>
+                <tr><td>1 – 4</td><td>矩形 / 三角形 / 圆形 / 五角星</td></tr>
+                <tr><td>G</td><td>手绘开关</td></tr>
+                <tr><td>Del</td><td>清空笔画</td></tr>
+                <tr><td>X</td><td>调整旋转中心</td></tr>
+                <tr><td>Space</td><td>转速归零 / 恢复</td></tr>
+                <tr><td>R</td><td>复位到默认状态</td></tr>
+              </tbody>
+            </table>
+            <ol class="callouts">
+              <li><b>01</b>顶栏可见键位不超过 5 组，其余进命令索引</li>
+              <li><b>02</b>手绘态下才显示「清空」，其余状态收起</li>
+              <li><b>03</b>转速为 0 时画布不重绘（requestRender 合并）</li>
+              <li><b>04</b>抽屉收起后留 24px 边轨，画布多吃 316px</li>
+              <li><b>05</b>遮住颜色只看线框：仍能分出顶栏、画布、抽屉、账本</li>
+            </ol>
+          </div>
+        </section>
+      </div>
+
+      <footer class="sheet__foot">
+        <span>DRAWING 02 · 控件与三态</span>
+        <span>说明：全部控件复用 system.css 的 bank / gauge / key 形态</span>
+        <span>PG 2 / 2</span>
+      </footer>
+    </section>
+  </div>
+</body>
+</html>

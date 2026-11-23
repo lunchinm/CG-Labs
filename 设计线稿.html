@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="archive">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>实验档案 · 目录页设计线稿</title>
+  <link rel="stylesheet" href="./ui-system/system.css">
+  <link rel="stylesheet" href="./ui-system/sheet.css">
+  <style>
+    @layer plate {
+      /* ------------------------------------------------------ 屏幕定稿图 */
+
+      .screen-figure {
+        position: relative;
+        margin: 0;
+      }
+
+      .screen-figure .crop {
+        width: 10px;
+        height: 10px;
+      }
+
+      .screen-figure .crop--tl { top: -6px; left: -6px; }
+      .screen-figure .crop--tr { top: -6px; right: -6px; }
+      .screen-figure .crop--bl { bottom: -6px; left: -6px; }
+      .screen-figure .crop--br { right: -6px; bottom: -6px; }
+
+      .screen {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        width: 1180px;
+        height: 700px;
+        padding: 32px 38px 20px;
+        overflow: hidden;
+        background: var(--ui-bg);
+        outline: 1px solid var(--ui-line-strong);
+      }
+
+      .screen__head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 230px;
+        gap: 36px;
+        padding-bottom: 20px;
+        border-bottom: 3px double var(--ui-line);
+      }
+
+      .screen__eyebrow {
+        margin: 0 0 12px;
+        font-family: var(--ui-font-label);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.16em;
+        color: var(--ui-muted);
+        text-transform: uppercase;
+      }
+
+      .screen__title {
+        margin: 0;
+        font-family: var(--ui-font-display);
+        font-size: 46px;
+        font-weight: 600;
+        line-height: 1.06;
+        letter-spacing: 0.03em;
+      }
+
+      .screen__title small {
+        display: block;
+        margin-top: 9px;
+        font-family: var(--ui-font-body);
+        font-size: 13px;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        color: var(--ui-muted);
+      }
+
+      .screen__meta {
+        display: grid;
+        gap: 6px;
+        align-self: end;
+        font-family: var(--ui-font-label);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.05em;
+      }
+
+      .screen__meta div {
+        display: grid;
+        grid-template-columns: 52px minmax(0, 1fr);
+        gap: 10px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--ui-line);
+      }
+
+      .screen__meta dt { color: var(--ui-faint); }
+      .screen__meta dd { margin: 0; color: var(--ui-ink); }
+
+      .screen__list {
+        flex: 1;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .screen__entry {
+        display: grid;
+        grid-template-columns: 60px minmax(0, 1fr) 120px;
+        gap: 22px;
+        padding: 20px 8px 20px 0;
+        border-top: 1px solid var(--ui-line);
+      }
+
+      .screen__entry:first-child { border-top: 0; }
+
+      .screen__entry--hover {
+        padding-left: 14px;
+        background: var(--ui-surface);
+        box-shadow: inset 2px 0 0 var(--ui-accent);
+      }
+
+      .screen__no {
+        padding-top: 4px;
+        font-family: var(--ui-font-mono);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        color: var(--ui-faint);
+      }
+
+      .screen__kicker {
+        display: block;
+        margin-bottom: 5px;
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        color: var(--ui-muted);
+        text-transform: uppercase;
+      }
+
+      .screen__entry-title {
+        display: block;
+        font-family: var(--ui-font-display);
+        font-size: 21px;
+        font-weight: 500;
+        line-height: 1.25;
+      }
+
+      .screen__desc {
+        display: block;
+        margin-top: 6px;
+        max-width: 56ch;
+        font-family: var(--ui-font-body);
+        font-size: 11px;
+        line-height: 1.65;
+        color: var(--ui-muted);
+      }
+
+      .screen__go {
+        justify-self: end;
+        padding-top: 4px;
+        font-family: var(--ui-font-label);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        color: var(--ui-accent);
+        white-space: nowrap;
+      }
+
+      .screen__go::after { content: " →"; }
+
+      .screen__foot {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        padding-top: 12px;
+        border-top: 1px solid var(--ui-line);
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        color: var(--ui-faint);
+      }
+
+      /* ---------------------------------------------------------- 标注 */
+
+      .mk {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        width: 15px;
+        height: 15px;
+        border: 1px solid var(--ui-accent);
+        background: var(--ui-bg);
+        font-family: var(--ui-font-mono);
+        font-size: 8px;
+        line-height: 1;
+        color: var(--ui-accent);
+      }
+
+      /* ------------------------------------------------------ 窄屏线框 */
+
+      .narrow {
+        display: grid;
+        gap: 8px;
+        width: 300px;
+        padding: 12px;
+        border: 1px solid var(--ui-line);
+      }
+
+      .narrow i {
+        display: block;
+        height: 9px;
+        border-top: 1px solid var(--ui-line);
+      }
+
+      .narrow b {
+        display: block;
+        height: 16px;
+        border-top: 1px solid var(--ui-line-strong);
+      }
+
+      .narrow span {
+        font-family: var(--ui-font-mono);
+        font-size: 8px;
+        letter-spacing: 0.08em;
+        color: var(--ui-faint);
+      }
+
+      .narrow-row {
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr) 40px;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .narrow-row i { height: 12px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="sheets">
+    <div class="doc-head">
+      <span>CG ARCHIVE · 设计线稿 / 目录页</span>
+      <span>REV A · 2026-11-23 · 与本页实机 index.html 同源</span>
+    </div>
+
+    <!-- ======================================================= SHEET 01 -->
+    <section class="sheet" id="sheet-01">
+      <span class="crop crop--tl"></span>
+      <span class="crop crop--tr"></span>
+      <span class="crop crop--bl"></span>
+      <span class="crop crop--br"></span>
+
+      <header class="sheet__head">
+        <div class="doc-brand">
+          <span class="doc-brand__name">CG ARCHIVE</span>
+          <span class="doc-brand__sub">计算机图形学 · 实验档案 / 目录页</span>
+        </div>
+        <h1 class="doc-title">屏幕定稿<small>SCREEN / SETTLED</small></h1>
+        <div class="doc-meta">
+          SHEET <b>01</b> / 02<br>
+          SCALE 1:1 · 1240 × 720<br>
+          REV A · 2026-11-23
+        </div>
+      </header>
+
+      <div class="sheet__body sheet--split">
+        <div>
+          <figure class="screen-figure">
+            <span class="crop crop--tl"></span>
+            <span class="crop crop--tr"></span>
+            <span class="crop crop--bl"></span>
+            <span class="crop crop--br"></span>
+
+            <div class="screen">
+              <span class="mk" style="top: 30px; left: 6px;">1</span>
+              <span class="mk" style="top: 78px; right: 214px;">2</span>
+              <span class="mk" style="top: 176px; left: 6px;">3</span>
+              <span class="mk" style="top: 232px; left: 78px;">4</span>
+              <span class="mk" style="top: 336px; right: 152px;">5</span>
+              <span class="mk" style="bottom: 34px; left: 6px;">6</span>
+
+              <div class="screen__head">
+                <div>
+                  <p class="screen__eyebrow">计算机图形学 / 实验档案</p>
+                  <h2 class="screen__title">三次实验<small>二维画布、三维漫游与光栅化着色</small></h2>
+                </div>
+                <dl class="screen__meta">
+                  <div><dt>学期</dt><dd>大三上</dd></div>
+                  <div><dt>卷宗</dt><dd>01 — 03</dd></div>
+                  <div><dt>依赖</dt><dd>无外部库</dd></div>
+                  <div><dt>运行</dt><dd>本地静态页</dd></div>
+                </dl>
+              </div>
+
+              <ol class="screen__list">
+                <li class="screen__entry screen__entry--hover">
+                  <span class="screen__no">01</span>
+                  <span>
+                    <span class="screen__kicker">Canvas 2D · 事件与重绘</span>
+                    <span class="screen__entry-title">交互式图形程序</span>
+                    <span class="screen__desc">形状切换、缓动平移、旋转控制与多笔画手绘；输入与重绘在同一帧收口。</span>
+                  </span>
+                  <span class="screen__go">打开</span>
+                </li>
+                <li class="screen__entry">
+                  <span class="screen__no">02</span>
+                  <span>
+                    <span class="screen__kicker">WebGL · 变换与相机</span>
+                    <span class="screen__entry-title">三维场景建模与漫游</span>
+                    <span class="screen__desc">三色轴与主次网格、应用式参数面板、MVP 变换、相机漫游与跟踪球。</span>
+                  </span>
+                  <span class="screen__go">打开</span>
+                </li>
+                <li class="screen__entry">
+                  <span class="screen__no">03</span>
+                  <span>
+                    <span class="screen__kicker">WebGL2 · 着色与阴影</span>
+                    <span class="screen__entry-title">光栅化场景渲染着色</span>
+                    <span class="screen__desc">冯氏着色、阴影贴图、环境反射、法线扰动、半透明、雾与 PCF 反走样。</span>
+                  </span>
+                  <span class="screen__go">打开</span>
+                </li>
+              </ol>
+
+              <div class="screen__foot">
+                <span>字体与界面取自本地 ui-system，不引用 CDN。</span>
+                <span>01 / 03 · 悬停行已展开左侧 2px 旧金条</span>
+              </div>
+            </div>
+          </figure>
+
+          <div class="dim">1240 × 720 · 元素按 1080 容器内缩 40px 计</div>
+
+          <div class="layout-grid">
+            <div class="block-head">
+              <span class="block-no">A</span>
+              <h2>版式网格</h2>
+              <span class="block-en">GRID / 1080</span>
+            </div>
+            <div class="layout-grid__frame" style="display: grid; grid-template-columns: 1fr; grid-template-rows: 56px 118px 34px; border: 1px solid var(--ui-line);">
+              <div class="gd" style="border-bottom: 1px solid var(--ui-line);">HEAD · 1fr 230 · 双线 3px</div>
+              <div class="gd">LIST · 60 / 1fr / 120 · 行距 1px 发丝线</div>
+              <div class="gd" style="border-top: 1px solid var(--ui-line);">FOOT · 两端对齐 · 10px 标签</div>
+            </div>
+            <div class="layout-grid__notes">
+              <span>容器 min(1080, 100% − 72)</span>
+              <span>页眉与页脚固定，目录区吃剩余高度</span>
+              <span>窄屏 760 断点列数降为 2</span>
+            </div>
+          </div>
+        </div>
+
+        <aside class="sheet-aside">
+          <div class="aside-block">
+            <h2><span>01</span>图纸信息</h2>
+            <dl class="spec-list">
+              <div><dt>用途</dt><dd>课程三次实验的入口目录，兼作实验索引</dd></div>
+              <div><dt>结构</dt><dd>页眉元信息 + 三行目录 + 页脚环境说明</dd></div>
+              <div><dt>容器</dt><dd>min(1080px, 100% − 72px)，上下留白 40 / 28</dd></div>
+              <div><dt>文字</dt><dd>Spectral 46 / 21 · Plex 13 · WenKai 标签</dd></div>
+              <div><dt>强调</dt><dd>旧金只用于「打开」与悬停左条</dd></div>
+            </dl>
+          </div>
+
+          <div class="aside-block">
+            <h2><span>02</span>色板</h2>
+            <div class="swatch-row"><span class="swatch" style="--c: #121417"></span><b>--ui-bg</b><span>页面</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #e7e2d8"></span><b>--ui-ink</b><span>标题</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #9c9a92"></span><b>--ui-muted</b><span>说明</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #67665f"></span><b>--ui-faint</b><span>编号</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #c9a227"></span><b>--ui-accent</b><span>打开 / 悬停条</span></div>
+          </div>
+
+          <div class="aside-block">
+            <h2><span>03</span>字级</h2>
+            <div class="type-row">
+              <div class="type-sample--display">三次实验</div>
+              <p>Spectral 600 · 46px · 字距 .03em</p>
+            </div>
+            <div class="type-row">
+              <div class="type-sample--title">CANVAS 2D · 事件与重绘</div>
+              <p>Plex Sans 500 · 9px · 字距 .14em</p>
+            </div>
+            <div class="type-row">
+              <div class="type-sample--mono">01 / 03 · 1240 × 720</div>
+              <p>Iosevka 400 · 12px · tabular-nums</p>
+            </div>
+            <div class="type-row">
+              <div class="type-sample--body">形状切换、缓动平移、旋转控制与多笔画手绘。</div>
+              <p>WenKai 400 · 11px · 行高 1.65</p>
+            </div>
+          </div>
+
+          <div class="aside-block">
+            <h2><span>04</span>标注</h2>
+            <ol class="callouts">
+              <li><b>01</b>页眉双线：整页唯一的 3px，其余分隔一律 1px</li>
+              <li><b>02</b>元信息四行：左标签 52px，右值不换行</li>
+              <li><b>03</b>目录编号 60px 栏，等宽、faint，不参与悬停高亮</li>
+              <li><b>04</b>标题 21px 衬线，描述 56ch 断行，避免长行</li>
+              <li><b>05</b>「打开」为唯一旧金文字，hover 只加左条与缩进</li>
+              <li><b>06</b>页脚常驻，两条说明随最小宽度折行</li>
+            </ol>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="sheet__foot">
+        <span>DRAWING 01 · 屏幕定稿（1:1）</span>
+        <span>说明：本页不引入新 token；所有取值来自 system.css</span>
+        <span>PG 1 / 2</span>
+      </footer>
+    </section>
+
+    <!-- ======================================================= SHEET 02 -->
+    <section class="sheet" id="sheet-02">
+      <span class="crop crop--tl"></span>
+      <span class="crop crop--tr"></span>
+      <span class="crop crop--bl"></span>
+      <span class="crop crop--br"></span>
+
+      <header class="sheet__head">
+        <div class="doc-brand">
+          <span class="doc-brand__name">CG ARCHIVE</span>
+          <span class="doc-brand__sub">计算机图形学 · 实验档案 / 状态与窄屏</span>
+        </div>
+        <h1 class="doc-title">状态与重排<small>STATES / REFLOW</small></h1>
+        <div class="doc-meta">
+          SHEET <b>02</b> / 02<br>
+          STATES 04 · BREAKPOINT 760<br>
+          REV A · 2026-11-23
+        </div>
+      </header>
+
+      <div class="sheet__body sheet--stack">
+        <section>
+          <div class="block-head">
+            <span class="block-no">B</span>
+            <h2>目录行的四种状态</h2>
+            <span class="block-en">ENTRY / STATES</span>
+          </div>
+
+          <div class="state-strip" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
+            <figure class="state-fig">
+              <div class="wire" style="grid-template-rows: 22px 1fr; height: 132px;">
+                <div class="wire__top">IDLE · 40px</div>
+                <div class="wire__stage" style="place-items: start; padding: 10px; text-align: left;">
+                  <span>01 — 交互式图形程序<br>60 / 1fr / 120</span>
+                </div>
+              </div>
+              <figcaption><b>a</b>静止：发丝线上边 + faint 编号</figcaption>
+            </figure>
+
+            <figure class="state-fig">
+              <div class="wire" style="grid-template-rows: 22px 1fr; height: 132px; box-shadow: inset 2px 0 0 var(--ui-accent);">
+                <div class="wire__top">HOVER</div>
+                <div class="wire__stage" style="place-items: start; padding: 10px 10px 10px 18px; text-align: left; background: var(--ui-surface);">
+                  <span>02 — 三维场景建模与漫游<br>缩进 14 · surface 底</span>
+                </div>
+              </div>
+              <figcaption><b>b</b>悬停：底色 + 左 2px 旧金 + 缩进</figcaption>
+            </figure>
+
+            <figure class="state-fig">
+              <div class="wire" style="grid-template-rows: 22px 1fr; height: 132px; outline: 1px solid var(--ui-accent); outline-offset: 2px;">
+                <div class="wire__top">FOCUS-VISIBLE</div>
+                <div class="wire__stage" style="place-items: start; padding: 10px; text-align: left;">
+                  <span>03 — 光栅化场景渲染着色<br>1px 外环 + 2px 偏移</span>
+                </div>
+              </div>
+              <figcaption><b>c</b>键盘焦点：外环常驻可见</figcaption>
+            </figure>
+
+            <figure class="state-fig">
+              <div class="wire" style="grid-template-rows: 22px 1fr; height: 132px;">
+                <div class="wire__top">NARROW · ≤ 760</div>
+                <div class="wire__stage" style="place-items: start; padding: 8px; text-align: left;">
+                  <div class="narrow" style="width: 100%; border: 0; padding: 0; gap: 6px;">
+                    <div class="narrow-row"><i></i><b style="height: 10px;"></b><i></i></div>
+                    <span>44 / 1fr · 打开换行到第 2 列</span>
+                  </div>
+                </div>
+              </div>
+              <figcaption><b>d</b>窄屏：编号收窄，动作行下移</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">C</span>
+            <h2>交互与可访问性</h2>
+            <span class="block-en">RULES</span>
+          </div>
+          <table class="state-table">
+            <thead>
+              <tr><th>项</th><th>规范</th><th>取值 / 依据</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>悬停</td><td>只改底色与左条，不加位移阴影</td><td>120ms linear · --ui-surface</td></tr>
+              <tr><td>焦点</td><td>Tab 可达，1px 外环 + 2px 偏移</td><td>:focus-visible · 与悬停同形</td></tr>
+              <tr><td>点击</td><td>整行可点，命中区不小于 44px 高</td><td>a 元素撑满 entry</td></tr>
+              <tr><td>动效</td><td>只有底色与左内边距，无入场</td><td>transition 120ms</td></tr>
+              <tr><td>窄屏</td><td>760 断点：列 44 / 1fr，动作换行</td><td>无横向滚动</td></tr>
+              <tr><td>对比度</td><td>正文 13px 不低于 4.5:1</td><td>muted on bg = 6.6:1</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">D</span>
+            <h2>验收清单</h2>
+            <span class="block-en">ACCEPTANCE</span>
+          </div>
+          <ol class="callouts">
+            <li><b>01</b>1280 与 760 两个宽度下无横向滚动，页脚不压目录</li>
+            <li><b>02</b>目录三行的编号左边缘对齐，标题基线一致</li>
+            <li><b>03</b>旧金只出现在「打开」与悬停左条，同屏没有第二处强调色</li>
+            <li><b>04</b>只用键盘可走完三次实验：Tab 三行 → Enter 进入</li>
+            <li><b>05</b>遮住颜色只看线框：仍能分辨页眉、目录、页脚三层</li>
+          </ol>
+        </section>
+      <section>
+          <div class="block-head">
+            <span class="block-no">E</span>
+            <h2>与实机对照</h2>
+            <span class="block-en">MATCH / INDEX.HTML</span>
+          </div>
+          <table class="state-table">
+            <thead>
+              <tr><th>线稿元素</th><th>实机位置</th><th>取舍</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>页眉双线</td><td>.index__head · border-bottom 3px double</td><td>保留，整页唯一粗线</td></tr>
+              <tr><td>元信息四行</td><td>.index__meta · 52 / 1fr</td><td>标签宽由 56 收窄到 52</td></tr>
+              <tr><td>目录行</td><td>.entry · 60 / 1fr / 120</td><td>编号 64 → 60，动作 132 → 120</td></tr>
+              <tr><td>悬停左条</td><td>.entry::before · 2px 旧金</td><td>与线稿一致</td></tr>
+              <tr><td>页脚</td><td>.index__foot · 两端说明</td><td>随容器折行，不固定高度</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">F</span>
+            <h2>页眉与页脚</h2>
+            <span class="block-en">CHROME</span>
+          </div>
+          <div style="display: grid; gap: 0; border: 1px solid var(--ui-line);">
+            <div class="gd" style="height: 30px; border-bottom: 3px double var(--ui-line-strong); justify-content: start; padding-left: 10px;">HEAD · 3px double</div>
+            <div class="gd" style="height: 26px; border-bottom: 1px solid var(--ui-line); justify-content: start; padding-left: 10px;">ENTRY · 1px hairline</div>
+            <div class="gd" style="height: 26px; border-bottom: 1px solid var(--ui-line); justify-content: start; padding-left: 10px;">ENTRY · 1px hairline</div>
+            <div class="gd" style="height: 30px; border-top: 1px solid var(--ui-line); justify-content: start; padding-left: 10px;">FOOT · 1px + 10px 标签</div>
+          </div>
+          <p class="dim" style="margin-top: 8px;">粗线只出现一次：其余全部 1px</p>
+        </section>
+      </div>
+
+      <footer class="sheet__foot">
+        <span>DRAWING 02 · 状态与重排</span>
+        <span>说明：窄屏只重排列，不隐藏任何实验入口</span>
+        <span>PG 2 / 2</span>
+      </footer>
+    </section>
+  </div>
+</body>
+</html>

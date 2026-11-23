@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="archive">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>实验二 · 三维场景建模与漫游 · 设计线稿</title>
+  <link rel="stylesheet" href="../../ui-system/system.css">
+  <link rel="stylesheet" href="../../ui-system/sheet.css">
+  <style>
+    @layer plate {
+      .screen-figure {
+        position: relative;
+        margin: 0;
+      }
+
+      .screen-figure .crop {
+        width: 10px;
+        height: 10px;
+      }
+
+      .screen-figure .crop--tl { top: -6px; left: -6px; }
+      .screen-figure .crop--tr { top: -6px; right: -6px; }
+      .screen-figure .crop--bl { bottom: -6px; left: -6px; }
+      .screen-figure .crop--br { right: -6px; bottom: -6px; }
+
+      .screen {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) var(--ui-rack-w);
+        grid-template-rows: var(--ui-topbar-h) minmax(0, 1fr) var(--ui-ledge-h);
+        grid-template-areas:
+          "top top"
+          "stage rack"
+          "ledge ledge";
+        width: 1180px;
+        height: 700px;
+        overflow: hidden;
+        background: var(--ui-bg);
+        outline: 1px solid var(--ui-line-strong);
+      }
+
+      .screen__top {
+        grid-area: top;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 0 14px;
+        background: var(--ui-bar);
+        border-bottom: 1px solid var(--ui-line);
+      }
+
+      .screen__brand {
+        font-family: var(--ui-font-display);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+      }
+
+      .screen__brand span {
+        margin-left: 8px;
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-weight: 400;
+        letter-spacing: 0.1em;
+        color: var(--ui-faint);
+      }
+
+      .screen__rule {
+        flex: 1;
+        height: 1px;
+        background: var(--ui-line);
+      }
+
+      .screen__hints {
+        display: flex;
+        gap: 12px;
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.05em;
+        color: var(--ui-muted);
+      }
+
+      .screen__hints b {
+        margin-right: 4px;
+        padding: 1px 4px;
+        border: 1px solid var(--ui-line-strong);
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-weight: 400;
+        color: var(--ui-ink);
+      }
+
+      .screen__acts {
+        display: flex;
+        gap: 6px;
+      }
+
+      .screen__btn {
+        display: grid;
+        place-items: center;
+        padding: 3px 8px;
+        border: 1px solid var(--ui-line-strong);
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        color: var(--ui-ink);
+      }
+
+      .screen__btn--live {
+        border-color: var(--ui-accent);
+        color: var(--ui-accent);
+      }
+
+      .screen__stage {
+        grid-area: stage;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .screen__rack {
+        grid-area: rack;
+        display: flex;
+        flex-direction: column;
+        border-left: 1px solid var(--ui-line);
+        background: var(--ui-surface);
+        overflow: hidden;
+      }
+
+      .rack__head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 10px 12px 8px;
+        border-bottom: 1px solid var(--ui-line-strong);
+      }
+
+      .rack__head b {
+        font-family: var(--ui-font-display);
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.1em;
+      }
+
+      .rack__head span {
+        margin-left: auto;
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        color: var(--ui-faint);
+      }
+
+      .rack__group {
+        padding: 8px 12px 9px;
+        border-bottom: 1px solid var(--ui-line);
+      }
+
+      .rack__group-head {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin-bottom: 7px;
+      }
+
+      .rack__no {
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        color: var(--ui-accent);
+      }
+
+      .rack__name {
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+      }
+
+      .rack__value {
+        margin-left: auto;
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-variant-numeric: tabular-nums;
+        color: var(--ui-muted);
+      }
+
+      .rack__bank {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border: 1px solid var(--ui-line);
+      }
+
+      .rack__bank + .rack__bank {
+        margin-top: -1px;
+      }
+
+      .rack__bank span {
+        padding: 5px 0;
+        border-left: 1px solid var(--ui-line);
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        color: var(--ui-muted);
+        text-align: center;
+      }
+
+      .rack__bank span:first-child { border-left: 0; }
+      .rack__bank span.is-on { box-shadow: inset 0 -1px 0 var(--ui-accent); color: var(--ui-ink); }
+
+      .rack__row {
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr) 48px;
+        gap: 6px;
+        align-items: center;
+        padding: 5px 0;
+        border-top: 1px solid var(--ui-line);
+      }
+
+      .rack__label {
+        padding-bottom: 1px;
+        border-bottom: 1px solid var(--ui-line);
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.03em;
+        color: var(--ui-muted);
+      }
+
+      .rack__track {
+        position: relative;
+        height: 9px;
+        border-top: 1px solid var(--ui-line-strong);
+      }
+
+      .rack__track::before {
+        position: absolute;
+        top: -2px;
+        left: var(--p, 50%);
+        width: 1px;
+        height: 5px;
+        background: var(--ui-accent);
+        content: "";
+      }
+
+      .rack__read {
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-variant-numeric: tabular-nums;
+        color: var(--ui-ink);
+        text-align: right;
+      }
+
+      .rack__switch {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 0;
+        border-top: 1px solid var(--ui-line);
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        color: var(--ui-muted);
+      }
+
+      .rack__switch i {
+        width: 16px;
+        height: 8px;
+        border: 1px solid var(--ui-line-strong);
+        font-style: normal;
+      }
+
+      .rack__switch i.is-on {
+        box-shadow: inset 8px 0 0 var(--ui-accent);
+      }
+
+      .rack__switch b {
+        margin-left: auto;
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-weight: 400;
+        color: var(--ui-ink);
+      }
+
+      .screen__ledge {
+        grid-area: ledge;
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        border-top: 1px solid var(--ui-line);
+        background: var(--ui-bar);
+      }
+
+      .ledge__cell {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 10px;
+        border-left: 1px solid var(--ui-line);
+        font-family: var(--ui-font-label);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        color: var(--ui-faint);
+      }
+
+      .ledge__cell:first-child { border-left: 0; }
+
+      .ledge__cell b {
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
+        color: var(--ui-ink);
+      }
+
+      .mk {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        width: 15px;
+        height: 15px;
+        border: 1px solid var(--ui-accent);
+        background: var(--ui-bg);
+        font-family: var(--ui-font-mono);
+        font-size: 7px;
+        line-height: 1;
+        color: var(--ui-accent);
+        z-index: 2;
+      }
+
+      .proj-pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+      }
+
+      .proj-fig {
+        margin: 0;
+        padding: 12px;
+        border: 1px solid var(--ui-line);
+      }
+
+      .proj-fig figcaption {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--ui-line);
+        font-size: 10px;
+        color: var(--ui-muted);
+      }
+
+      .proj-fig figcaption b {
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-weight: 400;
+        color: var(--ui-accent);
+      }
+
+      .zoom-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .zoom-cell {
+        padding: 12px;
+        border: 1px solid var(--ui-line);
+      }
+
+      .zoom-cell h3 {
+        margin: 0 0 8px;
+        font-family: var(--ui-font-mono);
+        font-size: 9px;
+        font-weight: 400;
+        letter-spacing: 0.14em;
+        color: var(--ui-faint);
+      }
+
+      .zoom-cell p {
+        margin: 8px 0 0;
+        font-size: 9px;
+        line-height: 1.55;
+        color: var(--ui-muted);
+      }
+
+      .gizmo-fig {
+        display: grid;
+        place-items: center;
+        height: 74px;
+        border: 1px solid var(--ui-line);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="sheets">
+    <div class="doc-head">
+      <span>HW2 · 三维场景建模与漫游 / 设计线稿</span>
+      <span>REV A · 2026-11-23 · 依据 ui-system design.md V2 与 system.css</span>
+    </div>
+
+    <!-- ======================================================= SHEET 01 -->
+    <section class="sheet" id="sheet-01">
+      <span class="crop crop--tl"></span>
+      <span class="crop crop--tr"></span>
+      <span class="crop crop--bl"></span>
+      <span class="crop crop--br"></span>
+
+      <header class="sheet__head">
+        <div class="doc-brand">
+          <span class="doc-brand__name">CANVAS 3D</span>
+          <span class="doc-brand__sub">计算机图形学 · 实验二 / 三维场景建模与漫游</span>
+        </div>
+        <h1 class="doc-title">屏幕定稿<small>SCREEN / SETTLED</small></h1>
+        <div class="doc-meta">
+          SHEET <b>01</b> / 02<br>
+          SCALE 1:1 · 1180 × 700<br>
+          REV A · 2026-11-23
+        </div>
+      </header>
+
+      <div class="sheet__body sheet--split">
+        <div>
+          <figure class="screen-figure">
+            <span class="crop crop--tl"></span>
+            <span class="crop crop--tr"></span>
+            <span class="crop crop--bl"></span>
+            <span class="crop crop--br"></span>
+
+            <div class="screen">
+              <span class="mk" style="top: 14px; left: 10px;">01</span>
+              <span class="mk" style="top: 14px; right: 486px;">02</span>
+              <span class="mk" style="top: 96px; right: 288px;">03</span>
+              <span class="mk" style="top: 300px; right: 288px;">04</span>
+              <span class="mk" style="top: 170px; left: 24px;">05</span>
+              <span class="mk" style="bottom: 46px; left: 60px;">06</span>
+              <span class="mk" style="bottom: 8px; left: 10px;">07</span>
+
+              <div class="screen__top">
+                <div class="screen__brand">CANVAS 3D<span>HW2 · SHEET 01 / REV A</span></div>
+                <span class="screen__rule"></span>
+                <div class="screen__hints">
+                  <span><b>R</b>复位</span>
+                  <span><b>P</b>投影</span>
+                  <span><b>空格</b>自由视角</span>
+                  <span><b>中键</b>左键模式</span>
+                </div>
+                <div class="screen__acts">
+                  <span class="screen__btn screen__btn--live">投影 正交</span>
+                  <span class="screen__btn">复位</span>
+                </div>
+              </div>
+
+              <div class="screen__stage">
+                <svg viewBox="0 0 864 622" width="864" height="622" role="img" aria-label="视口线稿：三轴、参考地面、线框立方体与角落 gizmo">
+                  <style>
+                    .w-grid line { stroke: rgba(231, 226, 216, .08); stroke-width: 1; }
+                    .w-axis line { stroke-width: 1.25; }
+                    .w-axis--x line { stroke: var(--ui-accent); }
+                    .w-axis--y line { stroke: var(--ui-ok); }
+                    .w-axis--z line { stroke: var(--ui-cool); }
+                    .w-cube line { stroke: var(--ui-ink); stroke-width: 1; opacity: .8; }
+                    .w-cube line.is-dash { stroke-dasharray: 4 4; opacity: .45; }
+                    .w-note { font-family: var(--ui-font-mono); font-size: 9px; letter-spacing: .1em; fill: var(--ui-faint); }
+                    .w-note--accent { fill: var(--ui-accent); }
+                    .w-note--ink { fill: var(--ui-muted); }
+                    .w-badge rect { fill: var(--ui-bar); stroke: var(--ui-line-strong); }
+                    .w-badge text { font-family: var(--ui-font-label); font-size: 9px; fill: var(--ui-muted); }
+                    .w-gizmo rect { fill: none; stroke: var(--ui-line-strong); }
+                    .w-gizmo line { stroke-width: 1.25; }
+                  </style>
+
+                  <g class="w-grid">
+                    <line x1="120" y1="470" x2="700" y2="470"/>
+                    <line x1="150" y1="430" x2="730" y2="430"/>
+                    <line x1="180" y1="390" x2="760" y2="390"/>
+                    <line x1="210" y1="350" x2="790" y2="350"/>
+                    <line x1="240" y1="310" x2="820" y2="310"/>
+                    <line x1="270" y1="270" x2="850" y2="270"/>
+                    <line x1="300" y1="230" x2="880" y2="230"/>
+                    <line x1="200" y1="500" x2="420" y2="180"/>
+                    <line x1="320" y1="500" x2="540" y2="180"/>
+                    <line x1="440" y1="500" x2="660" y2="180"/>
+                    <line x1="560" y1="500" x2="780" y2="180"/>
+                    <line x1="680" y1="500" x2="900" y2="180"/>
+                  </g>
+
+                  <g class="w-axis w-axis--y">
+                    <line x1="440" y1="470" x2="440" y2="160"/>
+                    <polygon points="440,150 435,164 445,164" fill="var(--ui-ok)"/>
+                  </g>
+                  <g class="w-axis w-axis--x">
+                    <line x1="440" y1="470" x2="700" y2="470"/>
+                    <polygon points="712,470 698,465 698,475" fill="var(--ui-accent)"/>
+                  </g>
+                  <g class="w-axis w-axis--z">
+                    <line x1="440" y1="470" x2="300" y2="540"/>
+                    <polygon points="292,545 306,542 302,533" fill="var(--ui-cool)"/>
+                  </g>
+
+                  <text class="w-note w-note--accent" x="716" y="474">X</text>
+                  <text class="w-note" x="432" y="146" style="fill: var(--ui-ok)">Y</text>
+                  <text class="w-note" x="282" y="552" style="fill: var(--ui-cool)">Z</text>
+
+                  <g class="w-cube">
+                    <line x1="380" y1="300" x2="500" y2="300"/>
+                    <line x1="500" y1="300" x2="560" y2="340"/>
+                    <line x1="560" y1="340" x2="440" y2="340"/>
+                    <line x1="440" y1="340" x2="380" y2="300"/>
+                    <line x1="380" y1="300" x2="380" y2="410"/>
+                    <line x1="500" y1="300" x2="500" y2="410"/>
+                    <line x1="560" y1="340" x2="560" y2="450"/>
+                    <line x1="440" y1="340" x2="440" y2="450"/>
+                    <line x1="380" y1="410" x2="500" y2="410"/>
+                    <line x1="500" y1="410" x2="560" y2="450"/>
+                    <line x1="560" y1="450" x2="440" y2="450"/>
+                    <line x1="440" y1="450" x2="380" y2="410"/>
+                    <line class="is-dash" x1="440" y1="340" x2="440" y2="450"/>
+                    <line class="is-dash" x1="440" y1="450" x2="380" y2="410"/>
+                  </g>
+
+                  <text class="w-note w-note--ink" x="386" y="286">线框立方体 · 面法线外翻</text>
+
+                  <g class="w-badge">
+                    <rect x="14" y="14" width="196" height="24"/>
+                    <text x="24" y="30">左键：旋转物体（中键切换）</text>
+                  </g>
+
+                  <g class="w-gizmo">
+                    <rect x="14" y="520" width="88" height="88"/>
+                    <line x1="58" y1="588" x2="96" y2="566" stroke="var(--ui-accent)"/>
+                    <line x1="58" y1="588" x2="58" y2="540" stroke="var(--ui-ok)"/>
+                    <line x1="58" y1="588" x2="26" y2="566" stroke="var(--ui-cool)"/>
+                    <text class="w-note w-note--accent" x="100" y="568">X</text>
+                    <text class="w-note" x="52" y="534" style="fill: var(--ui-ok)">Y</text>
+                    <text class="w-note" x="16" y="566" style="fill: var(--ui-cool)">Z</text>
+                    <text class="w-note" x="20" y="512">GIZMO</text>
+                  </g>
+
+                  <text class="w-note" x="700" y="596">视口 864 × 622 · DPR ≤ 2</text>
+                </svg>
+              </div>
+
+              <div class="screen__rack">
+                <div class="rack__head"><b>参数面板</b><span>01–04</span></div>
+
+                <div class="rack__group">
+                  <div class="rack__group-head">
+                    <span class="rack__no">01</span><span class="rack__name">模型</span>
+                    <span class="rack__value">墨西哥帽</span>
+                  </div>
+                  <div class="rack__bank">
+                    <span>方块</span><span>球</span><span class="is-on">墨西哥帽</span><span>茶壶</span>
+                  </div>
+                  <div class="rack__bank">
+                    <span>环面纽结</span><span>太阳系</span><span>齿轮组</span><span>导入 OBJ</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">缩放 S</span>
+                    <span class="rack__track" style="--p: 50%"></span>
+                    <span class="rack__read">1.00×</span>
+                  </div>
+                </div>
+
+                <div class="rack__group">
+                  <div class="rack__group-head">
+                    <span class="rack__no">02</span><span class="rack__name">相机</span>
+                    <span class="rack__value">轨道</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">方位 θ</span>
+                    <span class="rack__track" style="--p: 62%"></span>
+                    <span class="rack__read">45°</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">仰角 φ</span>
+                    <span class="rack__track" style="--p: 30%"></span>
+                    <span class="rack__read">54.7°</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">视野 fov</span>
+                    <span class="rack__track" style="--p: 36%"></span>
+                    <span class="rack__read">60°</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">距离</span>
+                    <span class="rack__track" style="--p: 40%"></span>
+                    <span class="rack__read">15.5</span>
+                  </div>
+                </div>
+
+                <div class="rack__group">
+                  <div class="rack__group-head">
+                    <span class="rack__no">03</span><span class="rack__name">变换</span>
+                    <span class="rack__value">跟踪球</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">平移 X</span>
+                    <span class="rack__track" style="--p: 50%"></span>
+                    <span class="rack__read">0.0</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">平移 Y</span>
+                    <span class="rack__track" style="--p: 50%"></span>
+                    <span class="rack__read">0.0</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">平移 Z</span>
+                    <span class="rack__track" style="--p: 50%"></span>
+                    <span class="rack__read">0.0</span>
+                  </div>
+                  <div class="rack__row">
+                    <span class="rack__label">旋转</span>
+                    <span class="rack__track" style="--p: 34%"></span>
+                    <span class="rack__read">R 3×3</span>
+                  </div>
+                </div>
+
+                <div class="rack__group">
+                  <div class="rack__group-head">
+                    <span class="rack__no">04</span><span class="rack__name">显示</span>
+                    <span class="rack__value">3 / 3 开</span>
+                  </div>
+                  <div class="rack__switch"><i class="is-on"></i>坐标轴<b>开</b></div>
+                  <div class="rack__switch"><i class="is-on"></i>轴标签<b>开</b></div>
+                  <div class="rack__switch"><i class="is-on"></i>角落 gizmo<b>开</b></div>
+                </div>
+              </div>
+
+              <div class="screen__ledge">
+                <div class="ledge__cell">投影 <b>正交</b></div>
+                <div class="ledge__cell">视角 <b>轨道</b></div>
+                <div class="ledge__cell">左键 <b>旋转</b></div>
+                <div class="ledge__cell">模型 <b>墨西哥帽</b></div>
+                <div class="ledge__cell">平移 <b>0.0 / 0.0 / 0.0</b></div>
+                <div class="ledge__cell">速度 <b>—</b></div>
+              </div>
+            </div>
+          </figure>
+
+          <div class="dim">1180 × 700 · 抽屉四组吃掉 316，视口 864</div>
+
+          <div class="layout-grid">
+            <div class="block-head">
+              <span class="block-no">A</span>
+              <h2>版式网格</h2>
+              <span class="block-en">GRID / STAGE</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 316px; grid-template-rows: 44px 420px 34px; border: 1px solid var(--ui-line);">
+              <div class="gd" style="grid-column: 1 / -1; border-bottom: 1px solid var(--ui-line);">TOPBAR 44 · 品牌 / 键位 4 组 / 动作 2 个</div>
+              <div class="gd" style="border-right: 1px solid var(--ui-line);">STAGE 1fr · 视口 + 模式徽标 + 角落 gizmo</div>
+              <div class="gd">RACK 316 · 模型 / 相机 / 变换 / 显示</div>
+              <div class="gd" style="grid-column: 1 / -1; border-top: 1px solid var(--ui-line);">LEDGE 34 · 六格账本</div>
+            </div>
+            <div class="layout-grid__notes">
+              <span>模型 7 档拆成 4 + 4 两行，宽度不溢出</span>
+              <span>账本六格与抽屉四组解耦</span>
+              <span>gizmo 88×88 固定左下角，不吃视口布局</span>
+            </div>
+          </div>
+        </div>
+
+        <aside class="sheet-aside">
+          <div class="aside-block">
+            <h2><span>01</span>图纸信息</h2>
+            <dl class="spec-list">
+              <div><dt>用途</dt><dd>实验二的建模、变换、相机与漫游</dd></div>
+              <div><dt>结构</dt><dd>顶栏动作有限 + 四组抽屉 + 六格账本</dd></div>
+              <div><dt>改动</dt><dd>七个模型按钮与七个视图按钮移出顶栏，改抽屉档位</dd></div>
+              <div><dt>保留</dt><dd>角落 gizmo、模式徽标、跟踪球与自由视角</dd></div>
+              <div><dt>键位</dt><dd>顶栏可见 4 组，其余进命令索引</dd></div>
+            </dl>
+          </div>
+
+          <div class="aside-block">
+            <h2><span>02</span>色板</h2>
+            <div class="swatch-row"><span class="swatch" style="--c: #121417"></span><b>--ui-bg</b><span>视口底</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #191c20"></span><b>--ui-surface</b><span>抽屉</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #e7e2d8"></span><b>--ui-ink</b><span>线框 / 读数</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #c9a227"></span><b>--ui-accent</b><span>X 轴 / 选中</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #8c9a8e"></span><b>--ui-cool</b><span>Z 轴</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c: #8fbf9f"></span><b>--ui-ok</b><span>Y 轴</span></div>
+          </div>
+
+          <div class="aside-block">
+            <h2><span>03</span>三轴约定</h2>
+            <ol class="callouts">
+              <li><b>X</b>旧金 --ui-accent，指向右后</li>
+              <li><b>Y</b>状态绿 --ui-ok，竖直向上</li>
+              <li><b>Z</b>灰蓝 --ui-cool，指向左前</li>
+              <li><b>gizmo</b>左下角 88×88 同色，随相机旋转</li>
+              <li><b>网格</b>1px 发丝线，不画坐标数字</li>
+            </ol>
+          </div>
+
+          <div class="aside-block">
+            <h2><span>04</span>标注</h2>
+            <ol class="callouts">
+              <li><b>01</b>顶栏只剩品牌、4 组键位、2 个动作</li>
+              <li><b>02</b>动作按钮 1px 描边；投影按钮用旧金标出当前值</li>
+              <li><b>03</b>模型 7 档：4 + 4 两行，末格是导入 OBJ</li>
+              <li><b>04</b>变换组的旋转用「R 3×3」占位，点开看矩阵</li>
+              <li><b>05</b>模式徽标常驻左上，说明左键当前做什么</li>
+              <li><b>06</b>gizmo 与三轴同色，不另起配色</li>
+              <li><b>07</b>账本六格：投影 / 视角 / 左键 / 模型 / 平移 / 速度</li>
+            </ol>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="sheet__foot">
+        <span>DRAWING 01 · 屏幕定稿（1:1）</span>
+        <span>说明：三轴配色沿用 V2 既有 token，不新增色值</span>
+        <span>PG 1 / 2</span>
+      </footer>
+    </section>
+
+    <!-- ======================================================= SHEET 02 -->
+    <section class="sheet" id="sheet-02">
+      <span class="crop crop--tl"></span>
+      <span class="crop crop--tr"></span>
+      <span class="crop crop--bl"></span>
+      <span class="crop crop--br"></span>
+
+      <header class="sheet__head">
+        <div class="doc-brand">
+          <span class="doc-brand__name">CANVAS 3D</span>
+          <span class="doc-brand__sub">计算机图形学 · 实验二 / 投影与漫游</span>
+        </div>
+        <h1 class="doc-title">投影与漫游<small>PROJECTION / ROAM</small></h1>
+        <div class="doc-meta">
+          SHEET <b>02</b> / 02<br>
+          MODES 03 · PARTS 04<br>
+          REV A · 2026-11-23
+        </div>
+      </header>
+
+      <div class="sheet__body sheet--stack">
+        <section>
+          <div class="block-head">
+            <span class="block-no">B</span>
+            <h2>两种投影</h2>
+            <span class="block-en">ORTHO / PERSPECTIVE</span>
+          </div>
+
+          <div class="proj-pair">
+            <figure class="proj-fig">
+              <svg viewBox="0 0 520 200" width="100%" height="200" role="img" aria-label="正交投影线稿">
+                <style>
+                  .p-ray line { stroke: var(--ui-cool); stroke-width: 1; stroke-dasharray: 4 4; }
+                  .p-body line { stroke: var(--ui-ink); stroke-width: 1.1; }
+                  .p-plane line { stroke: var(--ui-line-strong); stroke-width: 1; }
+                  .p-note { font-family: var(--ui-font-mono); font-size: 9px; fill: var(--ui-faint); letter-spacing: .1em; }
+                  .p-face { fill: var(--ui-ink); fill-opacity: .06; stroke: var(--ui-ink); stroke-width: 1.1; }
+                </style>
+                <line class="p-plane" x1="330" y1="30" x2="330" y2="180"/>
+                <text class="p-note" x="336" y="26">投影面</text>
+                <g class="p-body">
+                  <line x1="70" y1="60" x2="120" y2="60"/>
+                  <line x1="120" y1="60" x2="120" y2="140"/>
+                  <line x1="120" y1="140" x2="70" y2="140"/>
+                  <line x1="70" y1="140" x2="70" y2="60"/>
+                  <line x1="88" y1="72" x2="138" y2="72"/>
+                  <line x1="138" y1="72" x2="138" y2="152"/>
+                  <line x1="138" y1="152" x2="88" y2="152"/>
+                  <line x1="88" y1="152" x2="88" y2="72"/>
+                  <line x1="70" y1="60" x2="88" y2="72"/>
+                  <line x1="120" y1="60" x2="138" y2="72"/>
+                  <line x1="120" y1="140" x2="138" y2="152"/>
+                  <line x1="70" y1="140" x2="88" y2="152"/>
+                </g>
+                <g class="p-ray">
+                  <line x1="60" y1="50" x2="330" y2="50"/>
+                  <line x1="60" y1="100" x2="330" y2="100"/>
+                  <line x1="60" y1="150" x2="330" y2="150"/>
+                </g>
+                <rect class="p-face" x="330" y="50" width="46" height="100"/>
+                <text class="p-note" x="66" y="46">平行光线</text>
+                <text class="p-note" x="330" y="192">像大小与距离无关</text>
+              </svg>
+              <figcaption><b>a</b>正交：射线平行，适合工程视图与尺寸比对</figcaption>
+            </figure>
+
+            <figure class="proj-fig">
+              <svg viewBox="0 0 520 200" width="100%" height="200" role="img" aria-label="透视投影线稿">
+                <style>
+                  .q-ray line { stroke: var(--ui-cool); stroke-width: 1; stroke-dasharray: 4 4; }
+                  .q-body line { stroke: var(--ui-ink); stroke-width: 1.1; }
+                  .q-plane line { stroke: var(--ui-line-strong); stroke-width: 1; }
+                  .q-note { font-family: var(--ui-font-mono); font-size: 9px; fill: var(--ui-faint); letter-spacing: .1em; }
+                  .q-face { fill: var(--ui-accent); fill-opacity: .12; stroke: var(--ui-accent); stroke-width: 1.1; }
+                  .q-eye circle { fill: var(--ui-ink); }
+                </style>
+                <line class="q-plane" x1="300" y1="26" x2="300" y2="184"/>
+                <text class="q-note" x="306" y="22">投影面</text>
+                <g class="q-body">
+                  <line x1="70" y1="60" x2="120" y2="60"/>
+                  <line x1="120" y1="60" x2="120" y2="140"/>
+                  <line x1="120" y1="140" x2="70" y2="140"/>
+                  <line x1="70" y1="140" x2="70" y2="60"/>
+                  <line x1="88" y1="72" x2="138" y2="72"/>
+                  <line x1="138" y1="72" x2="138" y2="152"/>
+                  <line x1="138" y1="152" x2="88" y2="152"/>
+                  <line x1="88" y1="152" x2="88" y2="72"/>
+                  <line x1="70" y1="60" x2="88" y2="72"/>
+                  <line x1="120" y1="60" x2="138" y2="72"/>
+                  <line x1="120" y1="140" x2="138" y2="152"/>
+                  <line x1="70" y1="140" x2="88" y2="152"/>
+                </g>
+                <g class="q-eye">
+                  <circle cx="30" cy="100" r="3"/>
+                </g>
+                <g class="q-ray">
+                  <line x1="30" y1="100" x2="300" y2="52"/>
+                  <line x1="30" y1="100" x2="300" y2="148"/>
+                  <line x1="30" y1="100" x2="300" y2="100"/>
+                </g>
+                <rect class="q-face" x="300" y="52" width="58" height="96"/>
+                <text class="q-note" x="72" y="46">会聚光线</text>
+                <text class="q-note" x="300" y="192">近大远小，像随 fov 变化</text>
+              </svg>
+              <figcaption><b>b</b>透视：视线会聚于相机，自由视角固定用它</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">C</span>
+            <h2>控件解剖</h2>
+            <span class="block-en">PARTS</span>
+          </div>
+
+          <div class="zoom-strip">
+            <div class="zoom-cell">
+              <h3>BANK · 模型 7 + 导入</h3>
+              <div class="rack__bank">
+                <span>方块</span><span>球</span><span class="is-on">墨西哥帽</span><span>茶壶</span>
+              </div>
+              <div class="rack__bank">
+                <span>环面纽结</span><span>太阳系</span><span>齿轮组</span><span>导入 OBJ</span>
+              </div>
+              <p>七个模型分两行；导入 OBJ 与选择同级，不单开一个动作按钮。</p>
+            </div>
+
+            <div class="zoom-cell">
+              <h3>GIZMO · 角落朝向</h3>
+              <div class="gizmo-fig">
+                <svg viewBox="0 0 88 88" width="72" height="72" aria-label="gizmo 三轴线稿">
+                  <line x1="44" y1="64" x2="78" y2="46" stroke="var(--ui-accent)" stroke-width="1.25"/>
+                  <line x1="44" y1="64" x2="44" y2="22" stroke="var(--ui-ok)" stroke-width="1.25"/>
+                  <line x1="44" y1="64" x2="16" y2="46" stroke="var(--ui-cool)" stroke-width="1.25"/>
+                  <text x="80" y="48" fill="var(--ui-accent)" style="font: 8px var(--ui-font-mono)">X</text>
+                  <text x="38" y="18" fill="var(--ui-ok)" style="font: 8px var(--ui-font-mono)">Y</text>
+                  <text x="8" y="48" fill="var(--ui-cool)" style="font: 8px var(--ui-font-mono)">Z</text>
+                </svg>
+              </div>
+              <p>88×88 取景框，三轴只标字母不标数值；关掉后视口不留空白。</p>
+            </div>
+
+            <div class="zoom-cell">
+              <h3>SWITCH · 显示三开关</h3>
+              <div class="rack__switch" style="border-top: 0;"><i class="is-on"></i>坐标轴<b>开</b></div>
+              <div class="rack__switch"><i class="is-on"></i>轴标签<b>开</b></div>
+              <div class="rack__switch"><i></i>角落 gizmo<b>关</b></div>
+              <p>开关左对齐，状态写右侧等宽字；不用彩色徽章。</p>
+            </div>
+
+            <div class="zoom-cell">
+              <h3>MATRIX · 旋转读数</h3>
+              <div class="rack__row" style="border-top: 0;">
+                <span class="rack__label">旋转</span>
+                <span class="rack__track" style="--p: 34%"></span>
+                <span class="rack__read">R 3×3</span>
+              </div>
+              <div style="font-family: var(--ui-font-mono); font-size: 9px; line-height: 1.7; color: var(--ui-muted); padding-top: 6px;">
+                0.71 −0.65 0.25<br>
+                0.65 0.75 0.10<br>
+                −0.25 0.09 0.96
+              </div>
+              <p>跟踪球结果收成 3×3 只读矩阵，点开才展开，不占常态高度。</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">D</span>
+            <h2>漫游三态</h2>
+            <span class="block-en">ORBIT / FLY / RESET</span>
+          </div>
+
+          <div class="state-strip" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+            <figure class="state-fig">
+              <div class="wire" style="grid-template-columns: minmax(0, 1fr) 84px; grid-template-rows: 18px minmax(0, 1fr) 14px; grid-template-areas: 't t' 's r' 'l l';">
+                <div class="wire__area-top" style="grid-area: t; border-bottom: 1px solid var(--ui-line);"></div>
+                <div class="wire__area-stage" style="grid-area: s; display: grid; place-items: center;">
+                  <span class="wire__stage">ORBIT · 轨道</span>
+                </div>
+                <div class="wire__rack" style="grid-area: r;"><i>01</i><i>02</i><i>03</i><i>04</i></div>
+                <div class="wire__area-ledge" style="grid-area: l; border-top: 1px solid var(--ui-line);"></div>
+              </div>
+              <figcaption><b>a</b>轨道：右键抓取旋转视图，滚轮缩放物体</figcaption>
+            </figure>
+
+            <figure class="state-fig">
+              <div class="wire" style="grid-template-columns: minmax(0, 1fr) 84px; grid-template-rows: 18px minmax(0, 1fr) 14px; grid-template-areas: 't t' 's r' 'l l'; box-shadow: inset 0 0 0 1px var(--ui-accent);">
+                <div class="wire__area-top" style="grid-area: t; border-bottom: 1px solid var(--ui-line);"></div>
+                <div class="wire__area-stage" style="grid-area: s; display: grid; place-items: center; background: var(--ui-surface);">
+                  <span class="wire__stage">FLY · 自由视角</span>
+                </div>
+                <div class="wire__rack" style="grid-area: r; box-shadow: inset 0 0 0 1px var(--ui-accent);"><i>02 投影</i><i>03</i><i>04</i></div>
+                <div class="wire__area-ledge" style="grid-area: l; border-top: 1px solid var(--ui-line);"></div>
+              </div>
+              <figcaption><b>b</b>自由视角：投影按钮置灰，账本显速度</figcaption>
+            </figure>
+
+            <figure class="state-fig">
+              <div class="wire" style="grid-template-columns: minmax(0, 1fr) 84px; grid-template-rows: 18px minmax(0, 1fr) 14px; grid-template-areas: 't t' 's r' 'l l';">
+                <div class="wire__area-top" style="grid-area: t; border-bottom: 1px solid var(--ui-line);"></div>
+                <div class="wire__area-stage" style="grid-area: s; display: grid; place-items: center;">
+                  <span class="wire__stage">RESET · R</span>
+                </div>
+                <div class="wire__rack" style="grid-area: r;"><i>01</i><i>02</i><i>03</i><i>04</i></div>
+                <div class="wire__area-ledge" style="grid-area: l; border-top: 1px solid var(--ui-line);"></div>
+              </div>
+              <figcaption><b>c</b>复位：退出自由视角，回默认轨道机位</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">E</span>
+            <h2>与现版本对照</h2>
+            <span class="block-en">MIGRATION</span>
+          </div>
+          <table class="state-table">
+            <thead>
+              <tr><th>现版本</th><th>线稿做法</th><th>理由</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>顶栏 7 个模型按钮 + 7 个视图按钮</td><td>模型进抽屉档位，视图走键位与命令索引</td><td>顶栏 44px 高，塞不下 14 个按钮</td></tr>
+              <tr><td>按钮圆角 + 主按钮蓝底</td><td>1px 描边按钮，当前值用旧金文字</td><td>V2 反面对角清单</td></tr>
+              <tr><td>面板 5 段，动画段时隐时现</td><td>四组固定 + 动画并入模型组</td><td>组数跳变会让面板高度抖动</td></tr>
+              <tr><td>操作说明 15 行常驻</td><td>顶栏 4 组键位 + ? 打开键位账本</td><td>常驻说明把抽屉挤到底部</td></tr>
+              <tr><td>状态栏 6 格但低速隐藏一格</td><td>六格常驻，空值写 —</td><td>格数跳动会误以为是故障</td></tr>
+              <tr><td>三轴用 CSS 色写在 shader 里</td><td>轴色改用 --ui-accent / ok / cool</td><td>界面与场景同一套色</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">F</span>
+            <h2>键位预算与验收</h2>
+            <span class="block-en">KEYS / ACCEPTANCE</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 26px;">
+            <table class="state-table">
+              <thead><tr><th>键</th><th>动作</th></tr></thead>
+              <tbody>
+                <tr><td>R</td><td>复位</td></tr>
+                <tr><td>P</td><td>正交 / 透视</td></tr>
+                <tr><td>空格</td><td>双击切自由视角；其中按住上升</td></tr>
+                <tr><td>中键</td><td>切换左键：旋转 ⇄ 平移</td></tr>
+                <tr><td>W A S D</td><td>轨道绕轴 / 自由视角飞行与平移</td></tr>
+                <tr><td>Q E</td><td>绕世界 Z 轴旋转</td></tr>
+                <tr><td>M N</td><td>视野角 ∓2°</td></tr>
+                <tr><td>Z C</td><td>物体放大 / 缩小</td></tr>
+                <tr><td>方向键</td><td>沿世界轴平移物体</td></tr>
+              </tbody>
+            </table>
+            <ol class="callouts">
+              <li><b>01</b>顶栏只见 4 组键位，其余按 ? 打开完整账本</li>
+              <li><b>02</b>自由视角下投影按钮置灰，账本第二格变「自由」</li>
+              <li><b>03</b>导入 OBJ 失败时账本提示写具体原因，不弹窗</li>
+              <li><b>04</b>切换模型不重置相机，只用 R 复位</li>
+              <li><b>05</b>遮住颜色只看线框：能分出顶栏、视口、gizmo、抽屉、账本</li>
+            </ol>
+          </div>
+        </section>
+      </div>
+
+      <footer class="sheet__foot">
+        <span>DRAWING 02 · 投影与漫游</span>
+        <span>说明：轴色、gizmo、开关全部复用 V2 token 与组件形态</span>
+        <span>PG 2 / 2</span>
+      </footer>
+    </section>
+  </div>
+</body>
+</html>
