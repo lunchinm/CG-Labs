@@ -1,0 +1,215 @@
+@import url("../../base.css");
+
+/* ==========================================================================
+   V3 夜航图 / Night Chart
+   深海底 + 海图青 + 信号橙 + 极淡等高线。只覆盖 token 与组件形态。
+   ========================================================================== */
+
+@layer tokens {
+  :root {
+    --ui-font-display: "IBM Plex Sans", "LXGW WenKai", sans-serif;
+    --ui-font-body: "IBM Plex Sans", "LXGW WenKai", sans-serif;
+    --ui-font-mono: "Iosevka", "LXGW WenKai", monospace;
+
+    --ui-bg: #0a1420;
+    --ui-bar: #0c1826;
+    --ui-surface: #0f1d2b;
+    --ui-surface-2: #142434;
+    --ui-surface-3: #182b3c;
+    --ui-ink: #dce7ec;
+    --ui-muted: #8aa3b2;
+    --ui-faint: #5b7484;
+    --ui-line: rgba(126, 166, 184, 0.18);
+    --ui-line-strong: rgba(126, 166, 184, 0.36);
+    --ui-accent: #e4572e;
+    --ui-accent-ink: #0a1420;
+    --ui-cool: #7ea6b8;
+    --ui-focus: #e4572e;
+
+    --ui-scene-sky: #22344a;
+    --ui-scene-sky-2: #465f78;
+    --ui-scene-mountain: #2c3f52;
+    --ui-scene-water: #16283a;
+    --ui-scene-floor: #5e4128;
+    --ui-scene-floor-2: #6f4d30;
+    --ui-scene-plank: #432d1a;
+  }
+}
+
+@layer components {
+  /* 顶栏：窄体大写，字距拉开，像船名与图号 */
+  .ui-brand__name {
+    font-stretch: condensed;
+    letter-spacing: 0.24em;
+  }
+
+  .ui-brand__meta {
+    color: var(--ui-cool);
+    letter-spacing: 0.12em;
+  }
+
+  /* 仪表架：极淡等高线底纹，只用 1px SVG 线条，不用渐变或噪点 */
+  .ui-rack {
+    background-color: var(--ui-surface);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%237EA6B8' stroke-width='0.6' opacity='0.09'%3E%3Cpath d='M-20 50 C 30 20 70 80 120 50 S 190 20 230 50'/%3E%3Cpath d='M-20 95 C 30 65 70 125 120 95 S 190 65 230 95'/%3E%3Cpath d='M-20 140 C 30 110 70 170 120 140 S 190 110 230 140'/%3E%3Cpath d='M-20 185 C 30 155 70 215 120 185 S 190 155 230 185'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  .ui-rack__head {
+    background: var(--ui-surface);
+  }
+
+  .ui-drawer {
+    background: transparent;
+  }
+
+  .ui-drawer__head:hover {
+    background: rgba(126, 166, 184, 0.06);
+  }
+
+  .ui-drawer__title {
+    font-stretch: condensed;
+    letter-spacing: 0.22em;
+  }
+
+  .ui-drawer__index {
+    color: var(--ui-cool);
+  }
+
+  .ui-drawer__meta {
+    color: var(--ui-accent);
+  }
+
+  /* 字段：标签海图青，读数纸白；单位与数值分开读 */
+  .ui-field__label {
+    font-family: var(--ui-font-mono);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    color: var(--ui-cool);
+  }
+
+  .ui-field__value {
+    color: var(--ui-ink);
+  }
+
+  /* 滑杆：十字准星，像航道标 */
+  .ui-gauge__track {
+    background: var(--ui-line-strong);
+  }
+
+  .ui-gauge__fill {
+    background: var(--ui-accent);
+    opacity: 0.7;
+  }
+
+  .ui-gauge__thumb {
+    top: 3px;
+    left: var(--ui-gauge-pos);
+    width: 1px;
+    height: 18px;
+    background: var(--ui-accent);
+    transform: translateX(-0.5px);
+  }
+
+  .ui-gauge__thumb::before {
+    position: absolute;
+    top: 8px;
+    left: -5px;
+    width: 11px;
+    height: 1px;
+    background: var(--ui-accent);
+    content: "";
+  }
+
+  .ui-gauge__ticks span {
+    background: var(--ui-line-strong);
+  }
+
+  .ui-gauge__ticks span:nth-child(5n + 1) {
+    height: 6px;
+    background: var(--ui-cool);
+  }
+
+  /* 档位：像船台的档位条，选中用信号橙下缘 */
+  .ui-bank {
+    border-color: var(--ui-line-strong);
+    background: rgba(10, 20, 32, 0.45);
+  }
+
+  .ui-bank button {
+    letter-spacing: 0.04em;
+  }
+
+  .ui-bank button[data-active="true"] {
+    color: var(--ui-accent);
+    background: transparent;
+  }
+
+  /* 机械开关：菱形信号灯 */
+  .ui-key {
+    background: rgba(10, 20, 32, 0.35);
+  }
+
+  .ui-key__led {
+    width: 5px;
+    height: 5px;
+    border: 1px solid var(--ui-cool);
+    background: transparent;
+    transform: rotate(45deg);
+  }
+
+  .ui-key[data-active="true"] {
+    background: rgba(228, 87, 46, 0.08);
+  }
+
+  .ui-key[data-active="true"] .ui-key__led {
+    border-color: var(--ui-accent);
+    background: var(--ui-accent);
+  }
+
+  /* 状态账本：标签像海图图例 */
+  .ui-ledge__label {
+    color: var(--ui-cool);
+    letter-spacing: 0.18em;
+  }
+
+  .ui-ledge__value {
+    color: var(--ui-ink);
+  }
+
+  /* 命令索引：分组名海图青，快捷键信号橙 */
+  .ui-command__title,
+  .ui-keys__title {
+    font-stretch: condensed;
+    letter-spacing: 0.2em;
+  }
+
+  .ui-command__group {
+    color: var(--ui-cool);
+    letter-spacing: 0.18em;
+  }
+
+  .ui-command__row:hover,
+  .ui-command__row[data-active="true"] {
+    background: rgba(126, 166, 184, 0.07);
+  }
+
+  .ui-command__key {
+    color: var(--ui-accent);
+  }
+
+  /* 边轨：编号用海图青，悬停变信号橙 */
+  .ui-rail {
+    background: var(--ui-surface);
+    border-left-color: var(--ui-line-strong);
+  }
+
+  .ui-rail button:hover {
+    color: var(--ui-accent);
+  }
+
+  /* 折叠区：像图例展开 */
+  .ui-fold::before {
+    color: var(--ui-accent);
+  }
+}

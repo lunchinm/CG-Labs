@@ -1,136 +1,306 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="archive">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>计算机图形学 - 实验作业</title>
-    <style>
-        *{ margin: 0; padding: 0; box-sizing: border-box; }
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>计算机图形学 · 实验档案</title>
+<link rel="icon" href="data:image/x-icon;base64,">
+<link rel="stylesheet" href="./ui-system/system.css">
+<style>
+  @layer page {
+    html {
+      height: auto;
+    }
 
-        body{
-            font-family: "Microsoft YaHei", "SimHei", sans-serif;
-            background: #1a1d24;
-            color: #e0e0e0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    body {
+      min-height: 100dvh;
+      height: auto;
+      overflow: auto;
+      display: block;
+    }
 
-        .container{
-            width: 100%;
-            max-width: 640px;
-            padding: 40px 24px;
-        }
+    .index {
+      width: min(1080px, calc(100% - 72px));
+      min-height: 100dvh;
+      margin: 0 auto;
+      padding: 40px 0 28px;
+      display: flex;
+      flex-direction: column;
+    }
 
-        h1{
-            font-size: 28px;
-            font-weight: 600;
-            text-align: center;
-            margin-bottom: 6px;
-            color: #fff;
-        }
+    /* 页眉：双线 + 左对齐图纸标题，不做居中落地页 */
+    .index__head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 250px;
+      gap: 40px;
+      padding-bottom: 22px;
+      border-bottom: 3px double var(--ui-line);
+    }
 
-        .subtitle{
-            font-size: 14px;
-            text-align: center;
-            color: #888;
-            margin-bottom: 36px;
-        }
+    .index__eyebrow {
+      margin: 0 0 14px;
+      font-family: var(--ui-font-label);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      color: var(--ui-muted);
+      text-transform: uppercase;
+    }
 
-        .homework-list{
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+    .index__title {
+      margin: 0;
+      font-family: var(--ui-font-display);
+      font-size: clamp(38px, 6.4vw, 64px);
+      font-weight: 600;
+      line-height: 1.06;
+      letter-spacing: 0.03em;
+    }
 
-        .hw-card{
-            display: flex;
-            align-items: center;
-            gap: 18px;
-            padding: 18px 22px;
-            background: #252a35;
-            border: 1px solid #333a47;
-            border-radius: 10px;
-            text-decoration: none;
-            color: #e0e0e0;
-            transition: background 0.15s, border-color 0.15s, transform 0.1s;
-        }
-        .hw-card:hover{
-            background: #2d3441;
-            border-color: #4a5568;
-            transform: translateX(4px);
-        }
-        .hw-card:active{ transform: translateX(2px); }
+    .index__title small {
+      display: block;
+      margin-top: 10px;
+      font-family: var(--ui-font-body);
+      font-size: 14px;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      color: var(--ui-muted);
+    }
 
-        /* 卡片左侧编号 */
-        .hw-number{
-            font-size: 24px;
-            font-weight: 700;
-            color: #4a90d9;
-            min-width: 36px;
-            text-align: center;
-        }
+    .index__meta {
+      margin: 0;
+      align-self: end;
+      display: grid;
+      gap: 7px;
+      font-family: var(--ui-font-label);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      color: var(--ui-muted);
+    }
 
-        .hw-info{ flex: 1; }
+    .index__meta div {
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr);
+      gap: 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--ui-line);
+    }
 
-        .hw-title{
-            font-size: 16px;
-            font-weight: 500;
-            margin-bottom: 4px;
-            color: #e0e0e0;
-        }
+    .index__meta dt {
+      color: var(--ui-faint);
+    }
 
-        .hw-desc{
-            font-size: 12px;
-            color: #888;
-            line-height: 1.5;
-        }
+    .index__meta dd {
+      margin: 0;
+      color: var(--ui-ink);
+    }
 
-        /* 未完成的作业（占位） */
-        .hw-card.disabled{
-            opacity: 0.4;
-            cursor: default;
-            pointer-events: none;
-        }
-        .hw-card.disabled .hw-number{ color: #555; }
+    /* 目录：账本行，不用圆角卡片 */
+    .index__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border-bottom: 1px solid var(--ui-line);
+    }
 
-        /* 箭头指示 */
-        .hw-arrow{
-            color: #4a90d9;
-            font-size: 18px;
-            font-family: monospace;
-        }
-        .hw-card.disabled .hw-arrow{ color: #444; }
-    </style>
+    .entry {
+      position: relative;
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr) 132px;
+      gap: 24px;
+      align-items: start;
+      padding: 26px 10px 26px 0;
+      border-top: 1px solid var(--ui-line);
+      text-decoration: none;
+      color: inherit;
+      transition: background 120ms linear, padding-left 120ms linear;
+    }
+
+    .index__list li:first-child .entry {
+      border-top: 0;
+    }
+
+    .entry::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--ui-accent);
+      opacity: 0;
+      transition: opacity 120ms linear;
+    }
+
+    .entry:hover,
+    .entry:focus-visible {
+      background: var(--ui-surface);
+      padding-left: 14px;
+    }
+
+    .entry:hover::before,
+    .entry:focus-visible::before {
+      opacity: 1;
+    }
+
+    .entry__no {
+      font-family: var(--ui-font-mono);
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      color: var(--ui-faint);
+      padding-top: 5px;
+    }
+
+    .entry__kicker {
+      display: block;
+      margin-bottom: 6px;
+      font-family: var(--ui-font-label);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--ui-muted);
+      text-transform: uppercase;
+    }
+
+    .entry__title {
+      display: block;
+      font-family: var(--ui-font-display);
+      font-size: 25px;
+      font-weight: 500;
+      line-height: 1.25;
+      letter-spacing: 0.02em;
+    }
+
+    .entry__desc {
+      display: block;
+      margin-top: 8px;
+      max-width: 58ch;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--ui-muted);
+    }
+
+    .entry__go {
+      justify-self: end;
+      padding-top: 5px;
+      font-family: var(--ui-font-label);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      color: var(--ui-accent);
+      white-space: nowrap;
+    }
+
+    .entry__go::after {
+      content: " →";
+    }
+
+    .index__foot {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: auto;
+      padding-top: 22px;
+      font-family: var(--ui-font-label);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      color: var(--ui-faint);
+    }
+
+    @media (max-width: 760px) {
+      .index {
+        width: calc(100% - 40px);
+        padding-top: 28px;
+      }
+
+      .index__head {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+      }
+
+      .index__meta {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .entry {
+        grid-template-columns: 44px minmax(0, 1fr);
+        gap: 14px;
+        padding: 22px 0;
+      }
+
+      .entry__go {
+        grid-column: 2;
+        justify-self: start;
+        padding-top: 0;
+      }
+
+      .entry:hover,
+      .entry:focus-visible {
+        padding-left: 10px;
+      }
+    }
+  }
+</style>
 </head>
 
 <body>
-    <div class="container">
-        <h1>计算机图形学</h1>
-        <p class="subtitle">实验作业导航</p>
+  <div class="index">
+    <header class="index__head">
+      <div>
+        <p class="index__eyebrow">计算机图形学 / 实验档案</p>
+        <h1 class="index__title">三次实验<small>二维画布、三维漫游与光栅化着色</small></h1>
+      </div>
+      <dl class="index__meta">
+        <div><dt>学期</dt><dd>大三上</dd></div>
+        <div><dt>卷宗</dt><dd>01 — 03</dd></div>
+        <div><dt>依赖</dt><dd>无外部库</dd></div>
+        <div><dt>运行</dt><dd>本地静态页</dd></div>
+      </dl>
+    </header>
 
-        <div class="homework-list">
-            <!-- 作业 1 -->
-            <a href="./实验/1/1/hw1.html" class="hw-card">
-                <div class="hw-number">01</div>
-                <div class="hw-info">
-                    <div class="hw-title">交互式图形程序</div>
-                    <div class="hw-desc">形状切换 / 缓动平移 / 旋转控制 / 多笔画手绘</div>
-                </div>
-                <div class="hw-arrow">&rarr;</div>
-            </a>
+    <main>
+      <ol class="index__list">
+        <li>
+          <a class="entry" href="./实验/1/1/hw1.html">
+            <span class="entry__no">01</span>
+            <span class="entry__body">
+              <span class="entry__kicker">Canvas 2D · 事件与动画</span>
+              <span class="entry__title">交互式图形程序</span>
+              <span class="entry__desc">形状切换、缓动平移、旋转控制与多笔画手绘；输入与重绘都在同一帧里收口。</span>
+            </span>
+            <span class="entry__go">打开</span>
+          </a>
+        </li>
+        <li>
+          <a class="entry" href="./实验/2/2/3d-wandering.html">
+            <span class="entry__no">02</span>
+            <span class="entry__body">
+              <span class="entry__kicker">WebGL · 变换与相机</span>
+              <span class="entry__title">三维场景建模与漫游</span>
+              <span class="entry__desc">三色轴与主次网格、应用式参数面板、MVP 变换、相机漫游与跟踪球。</span>
+            </span>
+            <span class="entry__go">打开</span>
+          </a>
+        </li>
+        <li>
+          <a class="entry" href="./实验/3/3/Phongshading.html">
+            <span class="entry__no">03</span>
+            <span class="entry__body">
+              <span class="entry__kicker">WebGL2 · 着色与阴影</span>
+              <span class="entry__title">光栅化场景渲染着色</span>
+              <span class="entry__desc">冯氏着色、阴影贴图、环境反射、法线扰动、半透明、雾与 PCF 反走样。</span>
+            </span>
+            <span class="entry__go">打开</span>
+          </a>
+        </li>
+      </ol>
+    </main>
 
-            <!-- 作业 2 -->
-            <a href="./实验/2/2/3d-wandering.html" class="hw-card">
-                <div class="hw-number">02</div>
-                <div class="hw-info">
-                    <div class="hw-title">3D 场景建模与漫游</div>
-                    <div class="hw-desc">三色轴 + 主次网格 / 应用式面板 UI / MVP 变换 / 相机漫游 / 跟踪球</div>
-                </div>
-                <div class="hw-arrow">&rarr;</div>
-            </a>
-        </div>
-    </div>
+    <footer class="index__foot">
+      <span>字体与界面取自本地 ui-system，不引用 CDN。</span>
+      <span>作业三的纹理加载需经本地 HTTP 服务访问。</span>
+    </footer>
+  </div>
 </body>
 </html>

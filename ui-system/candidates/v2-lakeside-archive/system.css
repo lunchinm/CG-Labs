@@ -1,0 +1,264 @@
+@import url("../../base.css");
+
+/* ==========================================================================
+   V2 湖畔档案 / Lakeside Archive
+   纸白文字 + 旧金强调 + 衬线标题 + 页边注。只覆盖 token 与组件形态。
+   ========================================================================== */
+
+@layer tokens {
+  :root {
+    --ui-font-display: "Spectral", "Noto Serif SC", serif;
+    --ui-font-body: "IBM Plex Sans", "LXGW WenKai", sans-serif;
+    --ui-font-mono: "Iosevka", "LXGW WenKai", monospace;
+
+    --ui-bg: #121417;
+    --ui-bar: #15171a;
+    --ui-surface: #191c20;
+    --ui-surface-2: #1f2327;
+    --ui-surface-3: #252a2e;
+    --ui-ink: #e7e2d8;
+    --ui-muted: #9c9a92;
+    --ui-faint: #67665f;
+    --ui-line: rgba(231, 226, 216, 0.16);
+    --ui-line-strong: rgba(231, 226, 216, 0.32);
+    --ui-accent: #c9a227;
+    --ui-accent-ink: #121417;
+    --ui-cool: #8c9a8e;
+    --ui-focus: #c9a227;
+    --ui-bank-indicator-h: 1px;
+
+    --ui-scene-sky: #3a4352;
+    --ui-scene-sky-2: #626b76;
+    --ui-scene-mountain: #4a5058;
+    --ui-scene-water: #262d33;
+    --ui-scene-floor: #74543a;
+    --ui-scene-floor-2: #866246;
+    --ui-scene-plank: #573d28;
+  }
+}
+
+@layer components {
+  /* 顶栏：像档案页眉，标题用衬线，图号用等宽 */
+  .ui-brand__name {
+    font-weight: 400;
+    letter-spacing: 0.08em;
+  }
+
+  .ui-brand__meta {
+    letter-spacing: 0.04em;
+  }
+
+  .ui-topbar {
+    border-bottom: 3px double var(--ui-line);
+  }
+
+  /* 状态点改成印刷套准标记的小方块，不用通用圆点 */
+  .ui-live__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 0;
+  }
+
+  .ui-topbar__rule {
+    height: 22px;
+  }
+
+  /* 抽屉：标题用衬线小号，编号退到左边距 */
+  .ui-drawer__head {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    min-height: 40px;
+  }
+
+  .ui-drawer__title {
+    font-weight: 400;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+  }
+
+  .ui-drawer__index {
+    color: var(--ui-faint);
+    letter-spacing: 0.02em;
+  }
+
+  .ui-drawer[data-open="true"] .ui-drawer__head {
+    box-shadow: none;
+    border-bottom: 1px solid var(--ui-line-strong);
+  }
+
+  .ui-drawer[data-open="true"] .ui-drawer__index {
+    color: var(--ui-accent);
+  }
+
+  /* 展开后的正文缩进成“档案页边”，用一条竖线标明层级 */
+  .ui-drawer__body {
+    margin-left: 17px;
+    padding: 0 10px 0 12px;
+    border-left: 1px solid var(--ui-line);
+  }
+
+  .ui-drawer[data-open="true"] .ui-drawer__body {
+    padding: 6px 10px 14px 12px;
+  }
+
+  .ui-drawer[data-open="true"] .ui-drawer__body {
+    border-left-color: var(--ui-line-strong);
+  }
+
+  /* 字段：标签带下划线，像索引词条 */
+  .ui-field {
+    grid-template-columns: 62px minmax(0, 1fr) 48px;
+    min-height: 32px;
+  }
+
+  .ui-field--key {
+    grid-template-columns: 62px minmax(0, 1fr);
+  }
+
+  .ui-field__label {
+    font-weight: 500;
+    color: var(--ui-muted);
+    text-decoration: underline;
+    text-decoration-color: var(--ui-line);
+    text-underline-offset: 3px;
+  }
+
+  .ui-field[data-stacked="true"] {
+    grid-template-columns: minmax(0, 1fr) 48px;
+  }
+
+  /* 滑杆：细线 + 菱形游标 */
+  .ui-gauge {
+    height: 26px;
+  }
+
+  .ui-gauge__track {
+    top: 12px;
+  }
+
+  .ui-gauge__fill {
+    top: 12px;
+    opacity: 0.5;
+  }
+
+  .ui-gauge__thumb {
+    top: 8px;
+    left: var(--ui-gauge-pos);
+    width: 1px;
+    height: 9px;
+    background: var(--ui-line-strong);
+    transform: translateX(-0.5px);
+  }
+
+  .ui-gauge__thumb::before {
+    position: absolute;
+    top: -3px;
+    left: -2px;
+    width: 5px;
+    height: 5px;
+    background: var(--ui-accent);
+    content: "";
+    transform: rotate(45deg);
+  }
+
+  .ui-gauge__ticks span {
+    background: var(--ui-line);
+  }
+
+  .ui-gauge__ticks span:nth-child(5n + 1) {
+    background: var(--ui-cool);
+    opacity: 0.7;
+  }
+
+  /* 档位：不用底色，选中只留旧金下划线 */
+  .ui-bank {
+    background: transparent;
+  }
+
+  .ui-bank button {
+    letter-spacing: 0.04em;
+  }
+
+  .ui-bank button[data-active="true"] {
+    background: transparent;
+  }
+
+  /* 机械开关：退化成带下划线的文字键 */
+  .ui-key {
+    grid-template-columns: 8px minmax(0, 1fr);
+    min-height: 26px;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid var(--ui-line);
+    border-radius: 0;
+  }
+
+  .ui-key:hover {
+    border-bottom-color: var(--ui-line-strong);
+  }
+
+  .ui-key[data-active="true"] {
+    border-bottom-color: var(--ui-accent);
+    background: transparent;
+  }
+
+  .ui-key__led {
+    width: 4px;
+    height: 4px;
+    border: 0;
+    background: var(--ui-line-strong);
+    transform: rotate(45deg);
+  }
+
+  .ui-key[data-active="true"] .ui-key__led {
+    background: var(--ui-accent);
+    border: 0;
+  }
+
+  .ui-key__label {
+    letter-spacing: 0.04em;
+  }
+
+  /* 状态账本：标签用衬线小大写，读数保持等宽 */
+  .ui-ledge__label {
+    font-family: var(--ui-font-display);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--ui-cool);
+  }
+
+  /* 命令索引：行像目录条目，快捷键右对齐 */
+  .ui-command__title,
+  .ui-keys__title {
+    font-weight: 400;
+    letter-spacing: 0.1em;
+  }
+
+  .ui-command__group {
+    color: var(--ui-cool);
+    letter-spacing: 0.12em;
+  }
+
+  .ui-command__row {
+    min-height: 36px;
+  }
+
+  .ui-command__label {
+    font-size: 12px;
+  }
+
+  .ui-fold {
+    letter-spacing: 0.08em;
+  }
+
+  /* 档案页的细节：注释首行缩进、读数使用表格数字 */
+  .ui-note {
+    text-indent: 1.4em;
+  }
+
+  .ui-field__value,
+  .ui-ledge__value,
+  .ui-drawer__meta,
+  .ui-command__key {
+    font-variant-numeric: tabular-nums;
+  }
+}

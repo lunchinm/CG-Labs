@@ -1,0 +1,1985 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="archive">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>湖畔档案 · 设计线稿</title>
+  <link rel="stylesheet" href="../../ui-system/system.css">
+  <style>
+    /* 设计图纸本身也遵守 V2：无卡片、无投影、无渐变，全部由发丝线与编号组织 */
+    html,
+    body {
+      height: auto;
+      min-height: 100%;
+      overflow: auto;
+    }
+
+    body {
+      padding: 26px 0 56px;
+      background: #0b0d0f;
+    }
+
+    .sheets {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 30px;
+    }
+
+    .doc-head {
+      display: flex;
+      justify-content: space-between;
+      width: 1600px;
+      padding: 0 2px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      color: var(--ui-faint);
+    }
+
+    .sheet {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      width: 1600px;
+      min-height: 1200px;
+      background: var(--ui-bg);
+      border: 1px solid rgba(231, 226, 216, 0.08);
+    }
+
+    .sheet::before {
+      position: absolute;
+      inset: 10px;
+      border: 1px solid var(--ui-line);
+      content: "";
+      pointer-events: none;
+    }
+
+    .crop {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border: 0 solid var(--ui-line-strong);
+      pointer-events: none;
+    }
+
+    .crop--tl { top: 5px; left: 5px; border-top-width: 1px; border-left-width: 1px; }
+    .crop--tr { top: 5px; right: 5px; border-top-width: 1px; border-right-width: 1px; }
+    .crop--bl { bottom: 5px; left: 5px; border-bottom-width: 1px; border-left-width: 1px; }
+    .crop--br { bottom: 5px; right: 5px; border-bottom-width: 1px; border-right-width: 1px; }
+
+    .sheet__head {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: end;
+      gap: 24px;
+      padding: 24px 40px 14px;
+      border-bottom: 3px double var(--ui-line);
+    }
+
+    .doc-brand__name {
+      display: block;
+      font-family: var(--ui-font-display);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+    }
+
+    .doc-brand__sub {
+      display: block;
+      margin-top: 4px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      color: var(--ui-muted);
+    }
+
+    .doc-title {
+      margin: 0;
+      font-family: var(--ui-font-display);
+      font-size: 21px;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+    }
+
+    .doc-title small {
+      display: block;
+      margin-top: 3px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      font-weight: 400;
+      letter-spacing: 0.18em;
+      color: var(--ui-muted);
+      text-align: center;
+    }
+
+    .doc-meta {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      line-height: 1.8;
+      letter-spacing: 0.1em;
+      color: var(--ui-muted);
+      text-align: right;
+    }
+
+    .doc-meta b {
+      color: var(--ui-accent);
+      font-weight: 400;
+    }
+
+    .sheet__body {
+      flex: 1;
+      padding: 24px 40px 18px;
+    }
+
+    .sheet__foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 10px 40px 16px;
+      border-top: 1px solid var(--ui-line);
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--ui-faint);
+    }
+
+    .block-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--ui-line);
+      margin-bottom: 10px;
+    }
+
+    .block-head h2 {
+      margin: 0;
+      font-family: var(--ui-font-display);
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+    }
+
+    .block-no {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      color: var(--ui-accent);
+    }
+
+    .block-en {
+      margin-left: auto;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      color: var(--ui-faint);
+    }
+
+    /* ---------------------------------------------------------- sheet 01 */
+
+    .sheet-01 {
+      display: grid;
+      grid-template-columns: 1200px 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+
+    .screen-figure {
+      position: relative;
+      margin: 0;
+    }
+
+    .screen-figure .crop {
+      width: 10px;
+      height: 10px;
+    }
+
+    .screen-figure .crop--tl { top: -6px; left: -6px; }
+    .screen-figure .crop--tr { top: -6px; right: -6px; }
+    .screen-figure .crop--bl { bottom: -6px; left: -6px; }
+    .screen-figure .crop--br { right: -6px; bottom: -6px; }
+
+    .screen {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) var(--ui-rack-w);
+      grid-template-rows: var(--ui-topbar-h) minmax(0, 1fr) var(--ui-ledge-h);
+      grid-template-areas:
+        "top top"
+        "stage rack"
+        "ledge ledge";
+      width: 1200px;
+      height: 700px;
+      overflow: hidden;
+      background: var(--ui-bg);
+      outline: 1px solid var(--ui-line-strong);
+    }
+
+    .screen .ui-rack {
+      overflow: hidden;
+    }
+
+    .dim {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      color: var(--ui-faint);
+    }
+
+    .dim::before,
+    .dim::after {
+      flex: 1;
+      height: 1px;
+      background: var(--ui-line);
+      content: "";
+    }
+
+    .scene-notes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 28px;
+      margin: 16px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .scene-notes li {
+      display: grid;
+      grid-template-columns: 18px 66px minmax(0, 1fr);
+      gap: 8px;
+      align-items: baseline;
+      padding: 7px 0;
+      border-top: 1px solid var(--ui-line);
+      font-size: 11px;
+    }
+
+    .scene-notes b {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      color: var(--ui-accent);
+    }
+
+    .scene-notes span:nth-child(2) {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: var(--ui-ink);
+    }
+
+    .scene-notes span:last-child {
+      color: var(--ui-muted);
+    }
+
+    .layout-grid {
+      margin-top: 18px;
+    }
+
+    .layout-grid__frame {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 316px;
+      grid-template-rows: 44px 62px 34px;
+      grid-template-areas:
+        "top top"
+        "stage rack"
+        "ledge ledge";
+      border: 1px solid var(--ui-line);
+    }
+
+    .gd {
+      display: grid;
+      place-items: center;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      color: var(--ui-muted);
+    }
+
+    .gd--top { grid-area: top; border-bottom: 1px solid var(--ui-line); }
+    .gd--stage { grid-area: stage; }
+    .gd--rack { grid-area: rack; border-left: 1px solid var(--ui-line); }
+    .gd--ledge { grid-area: ledge; border-top: 1px solid var(--ui-line); }
+
+    .layout-grid__notes {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      padding-top: 6px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: var(--ui-faint);
+    }
+
+    /* ---------------------------------------------------------- aside */
+
+    .sheet-aside {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .aside-block {
+      padding-top: 8px;
+      border-top: 1px solid var(--ui-line-strong);
+    }
+
+    .aside-block h2 {
+      margin: 0 0 8px;
+      font-family: var(--ui-font-display);
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+    }
+
+    .aside-block h2 span {
+      margin-right: 6px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      color: var(--ui-accent);
+    }
+
+    .spec-list {
+      margin: 0;
+    }
+
+    .spec-list div {
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr);
+      gap: 8px;
+      padding: 5px 0;
+      border-top: 1px solid var(--ui-line);
+    }
+
+    .spec-list dt {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      color: var(--ui-faint);
+    }
+
+    .spec-list dd {
+      margin: 0;
+      font-size: 10px;
+      line-height: 1.5;
+      color: var(--ui-muted);
+    }
+
+    .swatch-row {
+      display: grid;
+      grid-template-columns: 22px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      padding: 5px 0;
+      border-top: 1px solid var(--ui-line);
+    }
+
+    .swatch {
+      width: 22px;
+      height: 10px;
+      border: 1px solid var(--ui-line);
+      background: var(--c);
+    }
+
+    .swatch-row b {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      color: var(--ui-muted);
+    }
+
+    .swatch-row span:last-child {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      color: var(--ui-faint);
+    }
+
+    .type-row {
+      padding: 8px 0;
+      border-top: 1px solid var(--ui-line);
+    }
+
+    .type-sample--display {
+      font-family: var(--ui-font-display);
+      font-size: 22px;
+      letter-spacing: 0.08em;
+    }
+
+    .type-sample--body {
+      font-family: var(--ui-font-body);
+      font-size: 13px;
+    }
+
+    .type-sample--mono {
+      font-family: var(--ui-font-mono);
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+    }
+
+    .type-sample--micro {
+      font-family: var(--ui-font-body);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      color: var(--ui-muted);
+    }
+
+    .type-meta {
+      display: block;
+      margin-top: 3px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      color: var(--ui-faint);
+    }
+
+    .timing-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .timing-list li {
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr);
+      gap: 8px;
+      padding: 5px 0;
+      border-top: 1px solid var(--ui-line);
+      font-size: 10px;
+      color: var(--ui-muted);
+    }
+
+    .timing-list b {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      font-weight: 400;
+      color: var(--ui-accent);
+    }
+
+    .render-order {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .render-order li {
+      display: grid;
+      grid-template-columns: 22px 58px minmax(0, 1fr);
+      gap: 6px;
+      padding: 4px 0;
+      border-top: 1px solid var(--ui-line);
+      font-size: 9px;
+    }
+
+    .render-order b {
+      font-family: var(--ui-font-mono);
+      font-weight: 400;
+      color: var(--ui-accent);
+    }
+
+    .render-order span:nth-child(2) {
+      font-family: var(--ui-font-mono);
+      letter-spacing: 0.04em;
+      color: var(--ui-ink);
+    }
+
+    .render-order span:last-child {
+      color: var(--ui-muted);
+    }
+
+    /* ---------------------------------------------------------- sheet 02 */
+
+    .sheet-02 {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .specimen-top {
+      display: grid;
+      grid-template-columns: 740px minmax(0, 1fr);
+      gap: 32px;
+      align-items: start;
+    }
+
+    .drawer-specimen {
+      display: grid;
+      grid-template-columns: 316px minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .drawer-specimen .ui-rack {
+      width: 316px;
+      overflow: visible;
+      border-right: 1px solid var(--ui-line);
+    }
+
+    .callouts {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .callouts li {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr);
+      gap: 8px;
+      padding: 6px 0;
+      border-top: 1px solid var(--ui-line);
+      font-size: 10px;
+      line-height: 1.5;
+      color: var(--ui-muted);
+    }
+
+    .callouts b {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      font-weight: 400;
+      color: var(--ui-accent);
+    }
+
+    .control-row {
+      display: grid;
+      grid-template-columns: 76px 330px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      padding: 10px 0;
+      border-top: 1px solid var(--ui-line);
+    }
+
+    .control-name {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--ui-faint);
+    }
+
+    .control-note {
+      font-size: 10px;
+      line-height: 1.55;
+      color: var(--ui-muted);
+    }
+
+    .state-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+
+    .state-table th {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--ui-line-strong);
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      color: var(--ui-faint);
+      text-align: left;
+    }
+
+    .state-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--ui-line);
+      color: var(--ui-muted);
+    }
+
+    .state-table td:first-child {
+      font-family: var(--ui-font-mono);
+      color: var(--ui-ink);
+    }
+
+    .rules {
+      display: grid;
+      gap: 0;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .rules li {
+      padding: 7px 0;
+      border-top: 1px solid var(--ui-line);
+      font-size: 10px;
+      line-height: 1.55;
+      color: var(--ui-muted);
+    }
+
+    .rules b {
+      color: var(--ui-ink);
+      font-weight: 500;
+    }
+
+    .spacing-fig {
+      padding: 14px 16px;
+      border: 1px solid var(--ui-line);
+    }
+
+    .space-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .space-group span {
+      display: block;
+      height: 9px;
+      border-top: 1px solid var(--ui-line-strong);
+    }
+
+    .space-label {
+      padding-bottom: 5px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--ui-faint);
+    }
+
+    .space-gap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 20px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      color: var(--ui-accent);
+    }
+
+    .space-gap::before {
+      width: 34px;
+      height: 1px;
+      background: var(--ui-accent);
+      content: "";
+    }
+
+    /* ---------------------------------------------------------- sheet 03 */
+
+    .sheet-03 {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .state-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) 240px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .state-fig {
+      margin: 0;
+    }
+
+    .wire {
+      position: relative;
+      display: grid;
+      height: 230px;
+      border: 1px solid var(--ui-line);
+    }
+
+    .wire--a {
+      grid-template-columns: minmax(0, 1fr) 106px;
+      grid-template-rows: 18px minmax(0, 1fr) 14px;
+      grid-template-areas:
+        "t t"
+        "s r"
+        "l l";
+    }
+
+    .wire--b {
+      grid-template-columns: minmax(0, 1fr) 16px;
+      grid-template-rows: 18px minmax(0, 1fr) 14px;
+      grid-template-areas:
+        "t t"
+        "s r"
+        "l l";
+    }
+
+    .wire--c {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      grid-template-areas: "s";
+    }
+
+    .wire__top {
+      grid-area: t;
+      padding: 2px 5px;
+      border-bottom: 1px solid var(--ui-line);
+      font-family: var(--ui-font-mono);
+      font-size: 7px;
+      letter-spacing: 0.08em;
+      color: var(--ui-faint);
+    }
+
+    .wire__stage {
+      grid-area: s;
+      position: relative;
+      display: grid;
+      place-items: center;
+      font-family: var(--ui-font-mono);
+      font-size: 7px;
+      letter-spacing: 0.14em;
+      color: var(--ui-faint);
+    }
+
+    .wire__stage::before,
+    .wire__stage::after {
+      position: absolute;
+      background: var(--ui-line);
+      content: "";
+    }
+
+    .wire__stage::before {
+      top: 50%;
+      left: 18%;
+      width: 64%;
+      height: 1px;
+    }
+
+    .wire__stage::after {
+      top: 28%;
+      left: 50%;
+      width: 1px;
+      height: 44%;
+    }
+
+    .wire__stage span {
+      position: relative;
+      z-index: 1;
+      padding: 0 4px;
+      background: var(--ui-bg);
+    }
+
+    .wire__rack {
+      grid-area: r;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--ui-line);
+    }
+
+    .wire__rack i {
+      display: block;
+      flex: 1;
+      padding: 3px 4px;
+      border-bottom: 1px solid var(--ui-line);
+      font-family: var(--ui-font-mono);
+      font-size: 7px;
+      font-style: normal;
+      color: var(--ui-faint);
+    }
+
+    .wire__rack i:first-child {
+      color: var(--ui-accent);
+    }
+
+    .wire__ledge {
+      grid-area: l;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      border-top: 1px solid var(--ui-line);
+    }
+
+    .wire__ledge i {
+      border-left: 1px solid var(--ui-line);
+    }
+
+    .wire__ledge i:first-child {
+      border-left: 0;
+    }
+
+    .wire__rail {
+      grid-area: r;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 0;
+      border-left: 1px solid var(--ui-line);
+      font-family: var(--ui-font-mono);
+      font-size: 7px;
+      color: var(--ui-muted);
+    }
+
+    .wire__rail b {
+      font-weight: 400;
+      color: var(--ui-accent);
+    }
+
+    .wire--c .wire__rail {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 16px;
+      background: var(--ui-surface);
+      border-left: 1px solid var(--ui-line-strong);
+    }
+
+    .state-fig figcaption {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-top: 8px;
+      padding-top: 7px;
+      border-top: 1px solid var(--ui-line);
+      font-size: 10px;
+      color: var(--ui-muted);
+    }
+
+    .state-fig figcaption b {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      font-weight: 400;
+      color: var(--ui-accent);
+    }
+
+    .state-fig figcaption span {
+      margin-left: auto;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      color: var(--ui-faint);
+    }
+
+    .state-notes {
+      padding-top: 8px;
+      border-top: 1px solid var(--ui-line-strong);
+    }
+
+    .state-notes p {
+      margin: 0 0 8px;
+      font-size: 10px;
+      line-height: 1.55;
+      color: var(--ui-muted);
+    }
+
+    .state-notes b {
+      color: var(--ui-ink);
+      font-weight: 500;
+    }
+
+    .overlay-grid {
+      display: grid;
+      grid-template-columns: 740px minmax(0, 1fr);
+      gap: 32px;
+      align-items: start;
+    }
+
+    .overlay-specimen .ui-command__panel,
+    .overlay-specimen .ui-keys__panel {
+      width: 680px;
+      max-height: none;
+      overflow: visible;
+    }
+
+    .overlay-note {
+      padding-top: 6px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      color: var(--ui-faint);
+    }
+
+    .overlay-note b {
+      margin-right: 6px;
+      font-weight: 400;
+      color: var(--ui-accent);
+    }
+
+    .timeline-wrap {
+      display: grid;
+      grid-template-columns: 900px minmax(0, 1fr);
+      gap: 32px;
+      align-items: start;
+    }
+
+    .timeline__axis {
+      position: relative;
+      height: 16px;
+      margin-left: 140px;
+      font-family: var(--ui-font-mono);
+      font-size: 8px;
+      color: var(--ui-faint);
+    }
+
+    .timeline__axis span {
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+    }
+
+    .timeline__axis span:first-child {
+      transform: none;
+    }
+
+    .timeline__axis span:last-child {
+      transform: translateX(-100%);
+    }
+
+    .tl-row {
+      display: grid;
+      grid-template-columns: 140px minmax(0, 1fr);
+      align-items: center;
+      height: 22px;
+      border-top: 1px solid var(--ui-line);
+    }
+
+    .tl-name {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.04em;
+      color: var(--ui-muted);
+    }
+
+    .tl-track {
+      position: relative;
+      height: 100%;
+    }
+
+    .tl-track::before {
+      position: absolute;
+      top: 50%;
+      right: 0;
+      left: 0;
+      height: 1px;
+      background: var(--ui-line);
+      content: "";
+    }
+
+    .tl-bar {
+      position: absolute;
+      top: calc(50% - 2px);
+      height: 4px;
+      background: var(--ui-accent);
+    }
+
+    .tl-bar--cool { background: var(--ui-cool); }
+    .tl-bar--faint { background: var(--ui-ink); opacity: 0.45; }
+
+    .tl-bar b {
+      position: absolute;
+      top: -5px;
+      left: 100%;
+      margin-left: 4px;
+      font-family: var(--ui-font-mono);
+      font-size: 8px;
+      font-weight: 400;
+      color: var(--ui-faint);
+      white-space: nowrap;
+    }
+
+    .tl-bar[data-end] b {
+      right: 3px;
+      left: auto;
+      margin: 0;
+      color: var(--ui-bg);
+    }
+
+    .budget {
+      padding-top: 8px;
+      border-top: 1px solid var(--ui-line-strong);
+    }
+
+    .budget__head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--ui-muted);
+    }
+
+    .budget__head b {
+      margin-left: auto;
+      font-weight: 400;
+      color: var(--ui-accent);
+    }
+
+    .budget__bar {
+      display: flex;
+      gap: 3px;
+      margin: 10px 0 12px;
+    }
+
+    .budget__bar i {
+      flex: 1;
+      height: 6px;
+      border: 1px solid var(--ui-line);
+    }
+
+    .budget__bar i[data-on] {
+      background: var(--ui-accent);
+      border-color: var(--ui-accent);
+    }
+
+    .keymap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 18px;
+    }
+
+    .keymap div {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 6px;
+      padding: 4px 0;
+      border-top: 1px solid var(--ui-line);
+      font-size: 10px;
+      color: var(--ui-muted);
+    }
+
+    .keymap b {
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      font-weight: 400;
+      color: var(--ui-accent);
+    }
+
+    .esc {
+      margin-top: 10px;
+      font-family: var(--ui-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.04em;
+      color: var(--ui-faint);
+    }
+
+    .esc b {
+      font-weight: 400;
+      color: var(--ui-muted);
+    }
+
+    @media screen and (max-width: 1660px) {
+      .sheet { zoom: 0.92; }
+      .doc-head { zoom: 0.92; }
+    }
+
+    @media screen and (max-width: 1520px) {
+      .sheet { zoom: 0.84; }
+      .doc-head { zoom: 0.84; }
+    }
+
+    @media screen and (max-width: 1380px) {
+      .sheet { zoom: 0.76; }
+      .doc-head { zoom: 0.76; }
+    }
+
+    @media print {
+      @page {
+        size: A3 landscape;
+        margin: 0;
+      }
+
+      body {
+        padding: 0;
+        background: var(--ui-bg);
+      }
+
+      .doc-head {
+        display: none;
+      }
+
+      .sheet {
+        zoom: 1;
+        margin: 0;
+        min-height: 100vh;
+        break-after: page;
+      }
+
+      .sheet:last-child {
+        break-after: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="doc-head">
+    <span>PHONG SHADING · HW3 · 计算机图形学</span>
+    <span>设计线稿 / DESIGN SHEETS / 3 张 / REV A</span>
+  </div>
+
+  <div class="sheets">
+    <!-- ======================================================= SHEET 01 -->
+    <section class="sheet" id="sheet-01">
+      <span class="crop crop--tl"></span>
+      <span class="crop crop--tr"></span>
+      <span class="crop crop--bl"></span>
+      <span class="crop crop--br"></span>
+
+      <header class="sheet__head">
+        <div class="doc-brand">
+          <span class="doc-brand__name">PHONG SHADING</span>
+          <span class="doc-brand__sub">HW3 · 交互式图形学实验 / 湖畔档案</span>
+        </div>
+        <h1 class="doc-title">屏幕定稿<small>SCREEN / SETTLED</small></h1>
+        <div class="doc-meta">
+          SHEET <b>01</b> / 03<br>
+          SCALE 1:1 · 1200 × 700<br>
+          REV A · 2026-11-21
+        </div>
+      </header>
+
+      <div class="sheet__body sheet-01">
+        <div class="screen-col">
+          <figure class="screen-figure">
+            <span class="crop crop--tl"></span>
+            <span class="crop crop--tr"></span>
+            <span class="crop crop--bl"></span>
+            <span class="crop crop--br"></span>
+
+            <div class="screen">
+              <header class="ui-topbar">
+                <div class="ui-brand">
+                  <span class="ui-brand__name">PHONG SHADING</span>
+                  <span class="ui-brand__meta">HW3 · SHEET 01 / REV A</span>
+                </div>
+                <span class="ui-topbar__rule"></span>
+                <div class="ui-hints">
+                  <span class="ui-hint"><span class="ui-kbd">C</span>点光</span>
+                  <span class="ui-hint"><span class="ui-kbd">V</span>平行光</span>
+                  <span class="ui-hint"><span class="ui-kbd">P</span>通道</span>
+                  <span class="ui-hint"><span class="ui-kbd">F</span>沉浸</span>
+                  <span class="ui-hint"><span class="ui-kbd">/</span>命令</span>
+                </div>
+                <div class="ui-topbar__actions">
+                  <span class="ui-live"><span class="ui-live__dot"></span>FINAL</span>
+                  <button class="ui-icon-button" type="button" tabindex="-1">K</button>
+                  <button class="ui-icon-button" type="button" tabindex="-1">?</button>
+                  <button class="ui-icon-button" type="button" tabindex="-1">R</button>
+                  <button class="ui-icon-button" type="button" tabindex="-1">F</button>
+                </div>
+              </header>
+
+              <main class="ui-stage">
+                <div class="ui-viewport">
+                  <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" role="img" aria-label="黄昏湖畔场景线稿">
+                    <style>
+                      .sc-sky { fill: var(--ui-scene-sky); }
+                      .sc-band { fill: var(--ui-scene-sky-2); opacity: .55; }
+                      .sc-sun { fill: #f0c98a; opacity: .8; }
+                      .sc-ridge-far { fill: var(--ui-scene-mountain); opacity: .62; }
+                      .sc-ridge { fill: var(--ui-scene-mountain); }
+                      .sc-water { fill: var(--ui-scene-water); }
+                      .sc-ripple line { stroke: rgba(200, 220, 235, .14); stroke-width: 1; }
+                      .sc-deck { fill: var(--ui-scene-floor); }
+                      .sc-deck-band { fill: var(--ui-scene-floor-2); opacity: .5; }
+                      .sc-plank line, .sc-seam line { stroke: var(--ui-scene-plank); stroke-width: 1; }
+                      .sc-plank line { opacity: .5; }
+                      .sc-seam line { opacity: .3; }
+                      .sc-shadow { fill: var(--ui-scene-shadow); opacity: .42; }
+                      .sc-pool { fill: var(--ui-scene-light); opacity: .2; }
+                      .sc-face-left { fill: #3d5a3a; fill-opacity: .86; stroke: rgba(233, 227, 216, .35); stroke-width: 1; }
+                      .sc-face-right { fill: #476a43; fill-opacity: .86; stroke: rgba(233, 227, 216, .35); stroke-width: 1; }
+                      .sc-face-top { fill: #55794f; fill-opacity: .9; stroke: rgba(233, 227, 216, .45); stroke-width: 1; }
+                      .sc-foliage { fill: var(--ui-scene-foliage); }
+                      .sc-foliage-2 { fill: var(--ui-scene-foliage-2); }
+                      .sc-foliage-3 { fill: var(--ui-scene-foliage-3); }
+                      .sc-flower-a { fill: var(--ui-scene-flower-a); }
+                      .sc-flower-b { fill: var(--ui-scene-flower-b); }
+                      .sc-flower-c { fill: var(--ui-scene-flower-c); }
+                      .sc-sheen { fill: #cfe0e8; opacity: .16; }
+                      .sc-rim { fill: none; stroke: rgba(255, 238, 210, .6); stroke-width: 1.4; }
+                      .sc-lamp { fill: var(--ui-scene-light); stroke: rgba(255, 240, 215, .7); stroke-width: 1; }
+                      .sc-note line { stroke: rgba(233, 227, 216, .55); stroke-width: 1; }
+                      .sc-note circle { fill: var(--ui-accent); }
+                      .sc-note text { fill: var(--ui-ink); font-family: var(--ui-font-mono); font-size: 11px; letter-spacing: .08em; }
+                      .sc-note .num { fill: var(--ui-accent); }
+                    </style>
+
+                    <defs>
+                      <clipPath id="face-left"><polygon points="466,430 598,476 598,596 466,548"/></clipPath>
+                      <clipPath id="face-right"><polygon points="598,476 742,436 742,556 598,596"/></clipPath>
+                      <clipPath id="face-top"><polygon points="466,430 610,392 742,436 598,476"/></clipPath>
+                    </defs>
+
+                    <rect class="sc-sky" width="1200" height="700"/>
+                    <rect class="sc-band" x="0" y="286" width="1200" height="46"/>
+                    <circle class="sc-sun" cx="886" cy="298" r="24"/>
+                    <polygon class="sc-ridge-far" points="0,334 96,308 190,326 286,300 390,330 500,304 610,328 716,302 820,326 930,304 1040,328 1130,306 1200,326 1200,352 0,352"/>
+                    <polygon class="sc-ridge" points="0,346 120,326 244,342 360,318 484,344 600,322 720,346 838,322 960,344 1080,324 1200,344 1200,372 0,372"/>
+                    <rect class="sc-water" x="0" y="340" width="1200" height="176"/>
+                    <g class="sc-ripple">
+                      <line x1="0" y1="372" x2="1200" y2="372"/>
+                      <line x1="60" y1="392" x2="1140" y2="392"/>
+                      <line x1="120" y1="414" x2="1080" y2="414"/>
+                      <line x1="180" y1="438" x2="1020" y2="438"/>
+                    </g>
+
+                    <polygon class="sc-deck" points="150,700 1050,700 830,440 370,440"/>
+                    <polygon class="sc-deck-band" points="370,440 830,440 818,474 382,474"/>
+                    <g class="sc-plank">
+                      <line x1="600" y1="440" x2="150" y2="700"/>
+                      <line x1="600" y1="440" x2="262" y2="700"/>
+                      <line x1="600" y1="440" x2="374" y2="700"/>
+                      <line x1="600" y1="440" x2="486" y2="700"/>
+                      <line x1="600" y1="440" x2="600" y2="700"/>
+                      <line x1="600" y1="440" x2="714" y2="700"/>
+                      <line x1="600" y1="440" x2="826" y2="700"/>
+                      <line x1="600" y1="440" x2="938" y2="700"/>
+                      <line x1="600" y1="440" x2="1050" y2="700"/>
+                    </g>
+                    <g class="sc-seam">
+                      <line x1="319" y1="500" x2="881" y2="500"/>
+                      <line x1="268" y1="560" x2="932" y2="560"/>
+                      <line x1="214" y1="630" x2="986" y2="630"/>
+                    </g>
+
+                    <ellipse class="sc-pool" cx="826" cy="492" rx="104" ry="26"/>
+                    <polygon class="sc-shadow" points="520,570 742,556 986,608 780,646 548,614"/>
+
+                    <g class="sc-cube">
+                      <polygon class="sc-face-top" points="466,430 610,392 742,436 598,476"/>
+                      <g clip-path="url(#face-top)">
+                        <rect class="sc-foliage-2" x="540" y="410" width="58" height="26"/>
+                        <rect class="sc-foliage" x="626" y="420" width="52" height="24"/>
+                        <circle class="sc-flower-c" cx="564" cy="420" r="5"/>
+                        <circle class="sc-flower-a" cx="600" cy="432" r="4"/>
+                      </g>
+
+                      <polygon class="sc-face-left" points="466,430 598,476 598,596 466,548"/>
+                      <g clip-path="url(#face-left)">
+                        <rect class="sc-foliage" x="470" y="452" width="64" height="42"/>
+                        <rect class="sc-foliage-3" x="516" y="504" width="72" height="40"/>
+                        <rect class="sc-foliage-2" x="472" y="520" width="44" height="34"/>
+                        <circle class="sc-flower-a" cx="500" cy="470" r="7"/>
+                        <circle class="sc-flower-b" cx="542" cy="500" r="6"/>
+                        <circle class="sc-flower-c" cx="486" cy="512" r="4"/>
+                        <circle class="sc-flower-a" cx="562" cy="536" r="5"/>
+                      </g>
+
+                      <polygon class="sc-face-right" points="598,476 742,436 742,556 598,596"/>
+                      <g clip-path="url(#face-right)">
+                        <rect class="sc-foliage-2" x="606" y="486" width="70" height="46"/>
+                        <rect class="sc-foliage" x="664" y="470" width="64" height="52"/>
+                        <rect class="sc-foliage-3" x="626" y="540" width="66" height="40"/>
+                        <circle class="sc-flower-b" cx="646" cy="504" r="6"/>
+                        <circle class="sc-flower-c" cx="700" cy="494" r="4"/>
+                        <circle class="sc-flower-a" cx="672" cy="550" r="6"/>
+                      </g>
+
+                      <polygon class="sc-sheen" points="598,486 742,446 742,506 598,546"/>
+                      <polyline class="sc-rim" points="466,430 610,392 742,436"/>
+                    </g>
+
+                    <g class="sc-lamp">
+                      <rect x="812" y="326" width="28" height="28"/>
+                      <rect x="812" y="326" width="28" height="8" opacity=".55"/>
+                    </g>
+
+                    <g class="sc-note">
+                      <line x1="410" y1="352" x2="330" y2="318"/>
+                      <circle cx="410" cy="352" r="3"/>
+                      <text x="272" y="312"><tspan class="num">01</tspan> FOG / 地平线同色</text>
+
+                      <line x1="702" y1="470" x2="780" y2="412"/>
+                      <circle cx="702" cy="470" r="3"/>
+                      <text x="786" y="408"><tspan class="num">02</tspan> REFLECT / SCHLICK</text>
+
+                      <line x1="532" y1="520" x2="430" y2="560"/>
+                      <circle cx="532" cy="520" r="3"/>
+                      <text x="316" y="574"><tspan class="num">03</tspan> GLASS / OPACITY 0.55</text>
+
+                      <line x1="470" y1="612" x2="372" y2="644"/>
+                      <circle cx="470" cy="612" r="3"/>
+                      <text x="282" y="658"><tspan class="num">04</tspan> BUMP / dFdx</text>
+
+                      <line x1="792" y1="568" x2="862" y2="618"/>
+                      <circle cx="792" cy="568" r="3"/>
+                      <text x="872" y="632"><tspan class="num">05</tspan> PCF / 3×3</text>
+                    </g>
+                  </svg>
+                </div>
+
+                <span class="ui-corner" data-corner="tl"></span>
+                <span class="ui-corner" data-corner="tr"></span>
+                <span class="ui-corner" data-corner="bl"></span>
+                <span class="ui-corner" data-corner="br"></span>
+
+                <div class="ui-viewport__stamp"><strong>SCENE A</strong> · DUSK LAKE / 3-4 VIEW</div>
+                <div class="ui-viewport__meta">CAM 018° / 076° / 6.5 · LIGHT −35° / 062° · SHADOW 2048</div>
+
+                <div class="ui-handles">
+                  <button class="ui-handle" type="button" tabindex="-1">TOP</button>
+                  <button class="ui-handle" type="button" tabindex="-1">HUD</button>
+                </div>
+              </main>
+
+              <aside class="ui-rack">
+                <div class="ui-rack__head">
+                  <span class="ui-rack__title">CONTROL RACK</span>
+                  <span class="ui-rack__meta">FOLIO 01—04</span>
+                  <button class="ui-icon-button" type="button" tabindex="-1">R</button>
+                </div>
+
+                <section class="ui-drawer" data-open="true">
+                  <div class="ui-drawer__head">
+                    <span class="ui-drawer__index">01</span>
+                    <span class="ui-drawer__title">LIGHT</span>
+                    <span class="ui-drawer__meta">POINT</span>
+                  </div>
+                  <div class="ui-drawer__body">
+                    <div class="ui-drawer__body-inner">
+                      <div class="ui-field" data-stacked="true">
+                        <span class="ui-field__label">TYPE</span>
+                        <span class="ui-field__value">POINT</span>
+                        <div class="ui-bank" data-ready="true" style="--ui-bank-x:0px;--ui-bank-w:72.5px">
+                          <button type="button" tabindex="-1" data-active="true">POINT</button>
+                          <button type="button" tabindex="-1" data-active="false">DIR</button>
+                          <span class="ui-bank__indicator" aria-hidden="true"></span>
+                        </div>
+                      </div>
+
+                      <div class="ui-field">
+                        <span class="ui-field__label">DIST</span>
+                        <div class="ui-gauge" style="--ui-gauge-pos:40%">
+                          <div class="ui-gauge__track"></div>
+                          <div class="ui-gauge__fill"></div>
+                          <div class="ui-gauge__thumb"></div>
+                          <div class="ui-gauge__ticks">
+                            <span></span><span></span><span></span><span></span><span></span><span></span>
+                            <span></span><span></span><span></span><span></span><span></span>
+                          </div>
+                        </div>
+                        <span class="ui-field__value">6.0 m</span>
+                      </div>
+
+                      <div class="ui-field">
+                        <span class="ui-field__label">AZIM</span>
+                        <div class="ui-gauge" style="--ui-gauge-pos:40.28%">
+                          <div class="ui-gauge__track"></div>
+                          <div class="ui-gauge__fill"></div>
+                          <div class="ui-gauge__thumb"></div>
+                          <div class="ui-gauge__ticks">
+                            <span></span><span></span><span></span><span></span><span></span><span></span>
+                            <span></span><span></span><span></span><span></span><span></span>
+                          </div>
+                        </div>
+                        <span class="ui-field__value">−35°</span>
+                      </div>
+
+                      <div class="ui-field">
+                        <span class="ui-field__label">ELEV</span>
+                        <div class="ui-gauge" style="--ui-gauge-pos:67.86%">
+                          <div class="ui-gauge__track"></div>
+                          <div class="ui-gauge__fill"></div>
+                          <div class="ui-gauge__thumb"></div>
+                          <div class="ui-gauge__ticks">
+                            <span></span><span></span><span></span><span></span><span></span><span></span>
+                            <span></span><span></span><span></span><span></span><span></span>
+                          </div>
+                        </div>
+                        <span class="ui-field__value">62°</span>
+                      </div>
+
+                      <p class="ui-note">A / D 环绕光源；距离与高度拖动刻度线，双击复位。</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="ui-drawer" data-open="false">
+                  <div class="ui-drawer__head">
+                    <span class="ui-drawer__index">02</span>
+                    <span class="ui-drawer__title">MATERIAL</span>
+                    <span class="ui-drawer__meta">KA 0.60</span>
+                  </div>
+                  <div class="ui-drawer__body"><div class="ui-drawer__body-inner"></div></div>
+                </section>
+
+                <section class="ui-drawer" data-open="false">
+                  <div class="ui-drawer__head">
+                    <span class="ui-drawer__index">03</span>
+                    <span class="ui-drawer__title">EFFECTS</span>
+                    <span class="ui-drawer__meta">FINAL</span>
+                  </div>
+                  <div class="ui-drawer__body"><div class="ui-drawer__body-inner"></div></div>
+                </section>
+
+                <section class="ui-drawer" data-open="false">
+                  <div class="ui-drawer__head">
+                    <span class="ui-drawer__index">04</span>
+                    <span class="ui-drawer__title">CAMERA</span>
+                    <span class="ui-drawer__meta">1.00 EV</span>
+                  </div>
+                  <div class="ui-drawer__body"><div class="ui-drawer__body-inner"></div></div>
+                </section>
+              </aside>
+
+              <footer class="ui-ledge">
+                <div class="ui-ledge__cell">
+                  <span class="ui-ledge__label">LIGHT</span>
+                  <span class="ui-ledge__value">POINT · 6.0 m</span>
+                </div>
+                <div class="ui-ledge__cell">
+                  <span class="ui-ledge__label">CAMERA</span>
+                  <span class="ui-ledge__value">52° · 6.5 m</span>
+                </div>
+                <div class="ui-ledge__cell">
+                  <span class="ui-ledge__label">EFFECTS</span>
+                  <span class="ui-ledge__value">6 / 6 ON</span>
+                </div>
+                <div class="ui-ledge__cell">
+                  <span class="ui-ledge__label">PASS</span>
+                  <span class="ui-ledge__value">FINAL</span>
+                </div>
+                <div class="ui-ledge__cell">
+                  <span class="ui-ledge__label">ECHO</span>
+                  <span class="ui-ledge__value">READY</span>
+                </div>
+              </footer>
+            </div>
+          </figure>
+
+          <div class="dim">1200 px · VIEWPORT / 实际字号 9–13 px，不缩放</div>
+
+          <ol class="scene-notes">
+            <li><b>01</b><span>FOG</span><span>地平线同色，远山退到天空色，雾只加在最终合成。</span></li>
+            <li><b>02</b><span>REFLECT</span><span>Schlick 菲涅耳，掠射角更亮；环境贴图为立方体六面。</span></li>
+            <li><b>03</b><span>GLASS</span><span>不透明度 0.55，先画不透明体，再按深度排序半透明体。</span></li>
+            <li><b>04</b><span>BUMP</span><span>dFdx / dFdy 扰动木纹法线，不改变几何轮廓。</span></li>
+            <li><b>05</b><span>PCF</span><span>2048 阴影贴图，3×3 采样，偏移 1.5 texel。</span></li>
+            <li><b>06</b><span>TIMING</span><span>抽屉 200 ms · 档位 140 ms · 边轨 120 / 180 ms · 按下 90 ms。</span></li>
+          </ol>
+
+          <section class="layout-grid">
+            <div class="block-head">
+              <span class="block-no">A</span>
+              <h2>版式网格</h2>
+              <span class="block-en">LAYOUT GRID / 三区独立收起</span>
+            </div>
+            <div class="layout-grid__frame">
+              <div class="gd gd--top">TOP · 44</div>
+              <div class="gd gd--stage">STAGE · 1fr</div>
+              <div class="gd gd--rack">RACK · 316</div>
+              <div class="gd gd--ledge">LEDGE · 34</div>
+            </div>
+            <div class="layout-grid__notes">
+              <span>三区互不影响</span>
+              <span>RACK 收起 → 24 px 边轨</span>
+              <span>沉浸模式只保留 STAGE</span>
+              <span>窄屏 ≤ 920 px 时 RACK 移到画布下方</span>
+            </div>
+          </section>
+        </div>
+
+        <aside class="sheet-aside">
+          <section class="aside-block">
+            <h2><span>01</span>图纸信息</h2>
+            <dl class="spec-list">
+              <div><dt>场景</dt><dd>A 黄昏湖畔 / 3-4 视角</dd></div>
+              <div><dt>布局</dt><dd>顶栏 + 右侧仪表架 + 底部账本</dd></div>
+              <div><dt>字体</dt><dd>Spectral / IBM Plex / Noto SC，本地 OFL 子集</dd></div>
+              <div><dt>强调</dt><dd>旧金 #C9A227，只做选中、游标、焦点</dd></div>
+              <div><dt>绘制</dt><dd>发丝线 1 px；仅顶栏 3 px 双线</dd></div>
+              <div><dt>状态</dt><dd>展开 / 面板收起 / 沉浸</dd></div>
+            </dl>
+          </section>
+
+          <section class="aside-block">
+            <h2><span>02</span>色板</h2>
+            <div class="swatch-row"><span class="swatch" style="--c:#121417"></span><b>BG</b><span>#121417</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c:#191c20"></span><b>SURFACE</b><span>#191C20</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c:#e7e2d8"></span><b>INK</b><span>#E7E2D8</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c:#9c9a92"></span><b>MUTED</b><span>#9C9A92</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c:#c9a227"></span><b>ACCENT</b><span>#C9A227</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c:#8c9a8e"></span><b>COOL</b><span>#8C9A8E</span></div>
+          </section>
+
+          <section class="aside-block">
+            <h2><span>03</span>字级</h2>
+            <div class="type-row">
+              <span class="type-sample--display">湖畔档案</span>
+              <span class="type-meta">Spectral 400 · 22 / 28 · 标题</span>
+            </div>
+            <div class="type-row">
+              <span class="type-sample--micro">FIELD LABEL / 字段标签</span>
+              <span class="type-meta">IBM Plex Sans 500 · 10 px · .16 em</span>
+            </div>
+            <div class="type-row">
+              <span class="type-sample--body">拖动刻度线，双击复位；读数保持等宽。</span>
+              <span class="type-meta">IBM Plex Sans 400 · 13 px · 正文</span>
+            </div>
+            <div class="type-row">
+              <span class="type-sample--mono">6.0 m / 52° / 2048</span>
+              <span class="type-meta">Iosevka 400 · 15 px · tabular-nums</span>
+            </div>
+          </section>
+
+          <section class="aside-block">
+            <h2><span>04</span>交互时长</h2>
+            <ul class="timing-list">
+              <li><b>200 ms</b><span>抽屉展开 / 三栏收起</span></li>
+              <li><b>140 ms</b><span>档位指示条 / 悬停颜色</span></li>
+              <li><b>120 ms</b><span>边轨悬停意图延迟</span></li>
+              <li><b>180 ms</b><span>边轨移开收回</span></li>
+              <li><b>90 ms</b><span>按下反馈 / LED</span></li>
+            </ul>
+          </section>
+
+          <section class="aside-block">
+            <h2><span>05</span>渲染顺序</h2>
+            <ol class="render-order">
+              <li><b>01</b><span>SHADOW</span><span>阴影贴图</span></li>
+              <li><b>02</b><span>FLOOR</span><span>木地板 + 凹凸</span></li>
+              <li><b>03</b><span>LAMP</span><span>光源标记</span></li>
+              <li><b>04</b><span>SKYBOX</span><span>天空盒 / 反射</span></li>
+              <li><b>05</b><span>GLASS</span><span>透明立方体</span></li>
+            </ol>
+          </section>
+        </aside>
+      </div>
+
+      <footer class="sheet__foot">
+        <span>湖畔档案 / LAKESIDE ARCHIVE</span>
+        <span>场景 A · 黄昏湖畔 · 1200 × 700</span>
+        <span>01 / 03</span>
+      </footer>
+    </section>
+
+    <!-- ======================================================= SHEET 02 -->
+    <section class="sheet" id="sheet-02">
+      <span class="crop crop--tl"></span>
+      <span class="crop crop--tr"></span>
+      <span class="crop crop--bl"></span>
+      <span class="crop crop--br"></span>
+
+      <header class="sheet__head">
+        <div class="doc-brand">
+          <span class="doc-brand__name">PHONG SHADING</span>
+          <span class="doc-brand__sub">HW3 · 交互式图形学实验 / 湖畔档案</span>
+        </div>
+        <h1 class="doc-title">组件解剖<small>COMPONENT / ANATOMY</small></h1>
+        <div class="doc-meta">
+          SHEET <b>02</b> / 03<br>
+          SCALE 1:1 · 316 px RACK<br>
+          REV A · 2026-11-21
+        </div>
+      </header>
+
+      <div class="sheet__body sheet-02">
+        <div class="specimen-top">
+          <section>
+            <div class="block-head">
+              <span class="block-no">01</span>
+              <h2>抽屉与字段</h2>
+              <span class="block-en">DRAWER / FIELD / 1:1</span>
+            </div>
+            <div class="drawer-specimen">
+              <div class="ui-rack">
+                <div class="ui-rack__head">
+                  <span class="ui-rack__title">CONTROL RACK</span>
+                  <span class="ui-rack__meta">FOLIO 01—04</span>
+                  <button class="ui-icon-button" type="button" tabindex="-1">R</button>
+                </div>
+
+                <section class="ui-drawer" data-open="true">
+                  <div class="ui-drawer__head">
+                    <span class="ui-drawer__index">01</span>
+                    <span class="ui-drawer__title">LIGHT</span>
+                    <span class="ui-drawer__meta">POINT</span>
+                  </div>
+                  <div class="ui-drawer__body">
+                    <div class="ui-drawer__body-inner">
+                      <div class="ui-field">
+                        <span class="ui-field__label">DIST</span>
+                        <div class="ui-gauge" style="--ui-gauge-pos:40%">
+                          <div class="ui-gauge__track"></div>
+                          <div class="ui-gauge__fill"></div>
+                          <div class="ui-gauge__thumb"></div>
+                          <div class="ui-gauge__ticks">
+                            <span></span><span></span><span></span><span></span><span></span><span></span>
+                            <span></span><span></span><span></span><span></span><span></span>
+                          </div>
+                        </div>
+                        <span class="ui-field__value">6.0 m</span>
+                      </div>
+                      <div class="ui-field">
+                        <span class="ui-field__label">AZIM</span>
+                        <div class="ui-gauge" style="--ui-gauge-pos:40.28%">
+                          <div class="ui-gauge__track"></div>
+                          <div class="ui-gauge__fill"></div>
+                          <div class="ui-gauge__thumb"></div>
+                          <div class="ui-gauge__ticks">
+                            <span></span><span></span><span></span><span></span><span></span><span></span>
+                            <span></span><span></span><span></span><span></span><span></span>
+                          </div>
+                        </div>
+                        <span class="ui-field__value">−35°</span>
+                      </div>
+                      <p class="ui-note">A / D 环绕光源；距离与高度拖动刻度线，双击复位。</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="ui-drawer" data-open="false">
+                  <div class="ui-drawer__head">
+                    <span class="ui-drawer__index">02</span>
+                    <span class="ui-drawer__title">MATERIAL</span>
+                    <span class="ui-drawer__meta">KA 0.60</span>
+                  </div>
+                  <div class="ui-drawer__body"><div class="ui-drawer__body-inner"></div></div>
+                </section>
+              </div>
+
+              <ol class="callouts">
+                <li><b>34</b><span>编号列；标题衬线 12 px，读数等宽 10 px。</span></li>
+                <li><b>40</b><span>抽屉头高度；收起时只有一条发丝线，无底色。</span></li>
+                <li><b>17</b><span>展开后正文的页边缩进，只画一条竖线，不嵌套边框。</span></li>
+                <li><b>1 px</b><span>展开分隔线用 line-strong；编号同时变为旧金。</span></li>
+                <li><b>62 / 1fr / 48</b><span>字段三列：标签 / 控件 / 读数；读数右对齐、等宽。</span></li>
+                <li><b>32</b><span>字段最小高度；标签带下划线，像索引词条。</span></li>
+                <li><b>20 / 8</b><span>组间距 20 px，行间距 8 px；前者必须明显大于后者。</span></li>
+              </ol>
+            </div>
+          </section>
+
+          <section>
+            <div class="block-head">
+              <span class="block-no">02</span>
+              <h2>控件</h2>
+              <span class="block-en">CONTROLS / STATES</span>
+            </div>
+
+            <div class="control-row">
+              <span class="control-name">GAUGE</span>
+              <div class="ui-field">
+                <span class="ui-field__label">DIST</span>
+                <div class="ui-gauge" style="--ui-gauge-pos:40%">
+                  <div class="ui-gauge__track"></div>
+                  <div class="ui-gauge__fill"></div>
+                  <div class="ui-gauge__thumb"></div>
+                  <div class="ui-gauge__ticks">
+                    <span></span><span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span>
+                  </div>
+                </div>
+                <span class="ui-field__value">6.0 m</span>
+              </div>
+              <span class="control-note">26 px 高；11 根刻度，每 5 根转灰绿；1 × 9 px 竖线 + 5 × 5 px 菱形游标。</span>
+            </div>
+
+            <div class="control-row">
+              <span class="control-name">BANK</span>
+              <div class="ui-field">
+                <span class="ui-field__label">PASS</span>
+                <div class="ui-bank" data-compact="true" data-ready="true" style="--ui-bank-x:33px;--ui-bank-w:33px">
+                  <button type="button" tabindex="-1" data-active="false">FINAL</button>
+                  <button type="button" tabindex="-1" data-active="true">SHADOW</button>
+                  <button type="button" tabindex="-1" data-active="false">REFLECT</button>
+                  <button type="button" tabindex="-1" data-active="false">FOG</button>
+                  <button type="button" tabindex="-1" data-active="false">BUMP</button>
+                  <button type="button" tabindex="-1" data-active="false">GLASS</button>
+                  <span class="ui-bank__indicator" aria-hidden="true"></span>
+                </div>
+                <span class="ui-field__value">SHADOW</span>
+              </div>
+              <span class="control-note">连体单元格 + 1 px 外框；选中只改旧金文字与 1 px 下划线，不加填充；指示条 140 ms 滑动。</span>
+            </div>
+
+            <div class="control-row">
+              <span class="control-name">KEY</span>
+              <div class="ui-field ui-field--key">
+                <span class="ui-field__label">SHADOW</span>
+                <button class="ui-key" type="button" tabindex="-1" data-active="true">
+                  <span class="ui-key__led"></span>
+                  <span class="ui-key__label">ON</span>
+                </button>
+              </div>
+              <span class="control-note">方形文字键 + 4 × 4 px 菱形 LED；关闭时 LED 灰、文字 muted；按下位移 1 px。</span>
+            </div>
+
+            <div class="control-row">
+              <span class="control-name">LEDGER</span>
+              <div class="ui-ledge" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+                <div class="ui-ledge__cell">
+                  <span class="ui-ledge__label">LIGHT</span>
+                  <span class="ui-ledge__value">POINT · 6.0 m</span>
+                </div>
+                <div class="ui-ledge__cell">
+                  <span class="ui-ledge__label">CAMERA</span>
+                  <span class="ui-ledge__value">52° · 6.5 m</span>
+                </div>
+                <div class="ui-ledge__cell">
+                  <span class="ui-ledge__label">ECHO</span>
+                  <span class="ui-ledge__value">READY</span>
+                </div>
+              </div>
+              <span class="control-note">五等分、格间一条发丝线；标签衬线 10 px，读数等宽 10 px；不画图标。</span>
+            </div>
+          </section>
+        </div>
+
+        <div class="specimen-top">
+          <section>
+            <div class="block-head">
+              <span class="block-no">03</span>
+              <h2>状态</h2>
+              <span class="block-en">STATE / FEEDBACK</span>
+            </div>
+            <table class="state-table">
+              <thead>
+                <tr><th>状态</th><th>触发</th><th>表现</th><th>时长</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>idle</td><td>默认</td><td>下划线标签 + 灰绿编号；无底色</td><td>0 ms</td></tr>
+                <tr><td>hover</td><td>指针移入</td><td>下划线提到 line-strong；文字不变</td><td>140 ms</td></tr>
+                <tr><td>focus-visible</td><td>Tab 到达</td><td>1 px 旧金外环，偏移 2 px</td><td>90 ms</td></tr>
+                <tr><td>active</td><td>选中 / 开启</td><td>旧金文字 / 菱形 LED / 下划线同步</td><td>90 ms</td></tr>
+                <tr><td>disabled</td><td>不可用</td><td>透明度 .38，pointer-events none，不进入 Tab</td><td>0 ms</td></tr>
+                <tr><td>echo</td><td>命令执行</td><td>行底色 surface-2 + 左侧 2 px 旧金条</td><td>600 ms</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section>
+            <div class="block-head">
+              <span class="block-no">04</span>
+              <h2>排版规则</h2>
+              <span class="block-en">SPACING / ALIGNMENT</span>
+            </div>
+            <div class="spacing-fig">
+              <div class="space-label">GROUP 01</div>
+              <div class="space-group">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="space-gap">20 px 组间距</div>
+              <div class="space-label">GROUP 02</div>
+              <div class="space-group">
+                <span></span><span></span>
+              </div>
+            </div>
+            <ul class="rules">
+              <li><b>组间距 20 px &gt; 行间距 8 px</b>；如果两者接近，界面会退化成通用后台。</li>
+              <li>标签左边缘统一；控件起点一致；读数右对齐。</li>
+              <li>每组只画一条发丝线，禁止在抽屉内再套边框。</li>
+              <li>长标签超过 6 个字符时上下排，不缩字号。</li>
+              <li>旧金只做选中、游标、焦点；灰绿只做状态与编号。</li>
+            </ul>
+          </section>
+        </div>
+      </div>
+
+      <footer class="sheet__foot">
+        <span>湖畔档案 / LAKESIDE ARCHIVE</span>
+        <span>尺寸单位 px · 样张 1:1 · 间距 20 / 8</span>
+        <span>02 / 03</span>
+      </footer>
+    </section>
+
+    <!-- ======================================================= SHEET 03 -->
+    <section class="sheet" id="sheet-03">
+      <span class="crop crop--tl"></span>
+      <span class="crop crop--tr"></span>
+      <span class="crop crop--bl"></span>
+      <span class="crop crop--br"></span>
+
+      <header class="sheet__head">
+        <div class="doc-brand">
+          <span class="doc-brand__name">PHONG SHADING</span>
+          <span class="doc-brand__sub">HW3 · 交互式图形学实验 / 湖畔档案</span>
+        </div>
+        <h1 class="doc-title">收起状态与命令<small>COLLAPSED / COMMAND</small></h1>
+        <div class="doc-meta">
+          SHEET <b>03</b> / 03<br>
+          TIMING 90–1400 ms<br>
+          REV A · 2026-11-21
+        </div>
+      </header>
+
+      <div class="sheet__body sheet-03">
+        <section>
+          <div class="block-head">
+            <span class="block-no">01</span>
+            <h2>三态</h2>
+            <span class="block-en">EXPANDED / RACK CLOSED / IMMERSIVE</span>
+          </div>
+          <div class="state-strip">
+            <figure class="state-fig">
+              <div class="wire wire--a">
+                <div class="wire__top">TOP · 44</div>
+                <div class="wire__stage"><span>SCENE A</span></div>
+                <div class="wire__rack"><i>01</i><i>02</i><i>03</i><i>04</i></div>
+                <div class="wire__ledge"><i></i><i></i><i></i><i></i><i></i></div>
+              </div>
+              <figcaption><b>A</b>展开<span>1200 × 700</span></figcaption>
+            </figure>
+
+            <figure class="state-fig">
+              <div class="wire wire--b">
+                <div class="wire__top">TOP · 44</div>
+                <div class="wire__stage"><span>SCENE A</span></div>
+                <div class="wire__rail"><b>R</b><i>01</i><i>02</i><i>03</i><i>04</i></div>
+                <div class="wire__ledge"><i></i><i></i><i></i><i></i><i></i></div>
+              </div>
+              <figcaption><b>B</b>面板收起<span>RAIL 24 px</span></figcaption>
+            </figure>
+
+            <figure class="state-fig">
+              <div class="wire wire--c">
+                <div class="wire__stage"><span>SCENE A</span></div>
+                <div class="wire__rail"><b>R</b><i>01</i><i>02</i><i>03</i><i>04</i></div>
+              </div>
+              <figcaption><b>C</b>沉浸模式<span>ESC 恢复</span></figcaption>
+            </figure>
+
+            <div class="state-notes">
+              <p><b>只改根节点属性</b>，不销毁 DOM，不重置 WebGL 或控件焦点。</p>
+              <p>顶栏与账本收起后，画布右侧保留 <b>TOP / HUD</b> 把手恢复。</p>
+              <p>边轨悬停 <b>120 ms</b> 浮出，移开 <b>180 ms</b> 收回；按下即固定。</p>
+              <p>开合状态按页面路径写入 <b>localStorage</b>；peek 不持久化。</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">02</span>
+            <h2>命令索引与键位账本</h2>
+            <span class="block-en">COMMAND INDEX / KEY LEDGER</span>
+          </div>
+          <div class="overlay-grid">
+            <div class="overlay-specimen">
+              <div class="ui-command__panel" role="dialog" aria-label="命令索引样张">
+                <div class="ui-command__head">
+                  <span class="ui-command__title">COMMAND INDEX</span>
+                  <span class="ui-command__hint">↑↓ 选择 · ENTER 执行 · ESC 关闭</span>
+                </div>
+                <input class="ui-command__search" type="search" placeholder="搜索命令、分组或键位" tabindex="-1" aria-label="搜索命令">
+                <div class="ui-command__list">
+                  <div class="ui-command__group">01 LIGHT</div>
+                  <div class="ui-command__row"><span class="ui-command__label">点光源 POINT</span><span class="ui-command__key">C</span></div>
+                  <div class="ui-command__row"><span class="ui-command__label">平行光 DIR</span><span class="ui-command__key">V</span></div>
+                  <div class="ui-command__row"><span class="ui-command__label">光源左转 5°</span><span class="ui-command__key">A</span></div>
+                  <div class="ui-command__group">02 CAMERA</div>
+                  <div class="ui-command__row"><span class="ui-command__label">视场角 +2°</span><span class="ui-command__key">M</span></div>
+                  <div class="ui-command__row"><span class="ui-command__label">视场角 −2°</span><span class="ui-command__key">N</span></div>
+                  <div class="ui-command__group">03 VIEW</div>
+                  <div class="ui-command__row" data-active="true"><span class="ui-command__label">切换渲染通道</span><span class="ui-command__key">P</span></div>
+                  <div class="ui-command__row"><span class="ui-command__label">沉浸模式</span><span class="ui-command__key">F</span></div>
+                  <div class="ui-command__group">05 SYSTEM</div>
+                  <div class="ui-command__row"><span class="ui-command__label">命令索引</span><span class="ui-command__key">Ctrl+K</span></div>
+                  <div class="ui-command__row"><span class="ui-command__label">键位账本</span><span class="ui-command__key">?</span></div>
+                </div>
+              </div>
+              <div class="overlay-note"><b>0 ms</b>出现，不做入场动画；输入即时过滤，↑↓ 选择，Enter 执行。</div>
+              <div class="overlay-note"><b>TAB</b>焦点在浮层内循环；点击遮罩或 Esc 关闭最上层。</div>
+            </div>
+
+            <div class="overlay-specimen">
+              <div class="ui-keys__panel" role="dialog" aria-label="键位账本样张">
+                <div class="ui-keys__head">
+                  <span class="ui-keys__title">KEY LEDGER</span>
+                  <span class="ui-keys__hint">点击执行 · ESC 关闭</span>
+                </div>
+                <div class="ui-keys__grid">
+                  <div class="ui-keys__group">01 LIGHT</div>
+                  <div class="ui-keys__group">02 CAMERA</div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">C</span><span class="ui-keys__label">点光源 POINT</span></div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">M</span><span class="ui-keys__label">视场角 +2°</span></div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">V</span><span class="ui-keys__label">平行光 DIR</span></div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">N</span><span class="ui-keys__label">视场角 −2°</span></div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">A</span><span class="ui-keys__label">光源左转 5°</span></div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">P</span><span class="ui-keys__label">切换渲染通道</span></div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">D</span><span class="ui-keys__label">光源右转 5°</span></div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">F</span><span class="ui-keys__label">沉浸模式</span></div>
+                  <div class="ui-keys__group">03 VIEW</div>
+                  <div class="ui-keys__group">05 SYSTEM</div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">Space</span><span class="ui-keys__label">重置场景参数</span></div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">Ctrl+K</span><span class="ui-keys__label">命令索引</span></div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">/</span><span class="ui-keys__label">命令索引</span></div>
+                  <div class="ui-keys__row"><span class="ui-keys__key">?</span><span class="ui-keys__label">键位账本</span></div>
+                </div>
+              </div>
+              <div class="overlay-note"><b>?</b>随时打开；只列已分配键位的命令，按分组两列排布。</div>
+              <div class="overlay-note"><b>CLICK</b>行即执行；执行后浮层关闭，底部回声显示结果。</div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="block-head">
+            <span class="block-no">03</span>
+            <h2>交互时长与单键预算</h2>
+            <span class="block-en">TIMING / KEY BUDGET</span>
+          </div>
+          <div class="timeline-wrap">
+            <div class="timeline">
+              <div class="timeline__axis">
+                <span style="left:0%">0</span>
+                <span style="left:14.29%">200</span>
+                <span style="left:42.86%">600</span>
+                <span style="left:100%">1400 ms</span>
+              </div>
+
+              <div class="tl-row">
+                <span class="tl-name">按下反馈</span>
+                <div class="tl-track"><span class="tl-bar" style="left:0;width:6.43%"><b>90</b></span></div>
+              </div>
+              <div class="tl-row">
+                <span class="tl-name">档位指示条</span>
+                <div class="tl-track"><span class="tl-bar" style="left:0;width:10%"><b>140</b></span></div>
+              </div>
+              <div class="tl-row">
+                <span class="tl-name">边轨展开</span>
+                <div class="tl-track"><span class="tl-bar" style="left:0;width:8.57%"><b>120</b></span></div>
+              </div>
+              <div class="tl-row">
+                <span class="tl-name">边轨收回</span>
+                <div class="tl-track"><span class="tl-bar tl-bar--cool" style="left:0;width:12.86%"><b>180</b></span></div>
+              </div>
+              <div class="tl-row">
+                <span class="tl-name">抽屉 / 布局</span>
+                <div class="tl-track"><span class="tl-bar" style="left:0;width:14.29%"><b>200</b></span></div>
+              </div>
+              <div class="tl-row">
+                <span class="tl-name">行高亮</span>
+                <div class="tl-track"><span class="tl-bar tl-bar--faint" style="left:0;width:42.86%"><b>600</b></span></div>
+              </div>
+              <div class="tl-row">
+                <span class="tl-name">按键回声</span>
+                <div class="tl-track"><span class="tl-bar tl-bar--faint" data-end style="left:0;width:100%"><b>1400</b></span></div>
+              </div>
+            </div>
+
+            <div class="budget">
+              <div class="budget__head"><span>单键预算</span><b>11 / 12</b></div>
+              <div class="budget__bar">
+                <i data-on></i><i data-on></i><i data-on></i><i data-on></i><i data-on></i><i data-on></i>
+                <i data-on></i><i data-on></i><i data-on></i><i data-on></i><i data-on></i><i></i>
+              </div>
+              <div class="keymap">
+                <div><b>C</b><span>点光源</span></div>
+                <div><b>V</b><span>平行光</span></div>
+                <div><b>A</b><span>光源左转</span></div>
+                <div><b>D</b><span>光源右转</span></div>
+                <div><b>M</b><span>视场角 +</span></div>
+                <div><b>N</b><span>视场角 −</span></div>
+                <div><b>P</b><span>通道循环</span></div>
+                <div><b>F</b><span>沉浸模式</span></div>
+                <div><b>Space</b><span>重置场景</span></div>
+                <div><b>/</b><span>命令索引</span></div>
+                <div><b>?</b><span>键位账本</span></div>
+              </div>
+              <div class="esc"><b>ESC 优先级</b> 浮层 → 沉浸模式 → 不动作</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="sheet__foot">
+        <span>湖畔档案 / LAKESIDE ARCHIVE</span>
+        <span>交互时长 ms · 单键预算 11 / 12</span>
+        <span>03 / 03</span>
+      </footer>
+    </section>
+  </div>
+</body>
+</html>

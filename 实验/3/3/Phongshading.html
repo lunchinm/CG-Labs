@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="archive">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HW3 · 黄昏湖畔 · 镜面与半透明展台</title>
+  <link rel="icon" href="data:image/x-icon;base64,">
+  <link rel="stylesheet" href="../../../ui-system/system.css">
+  <link rel="stylesheet" href="page.css">
+</head>
+<body>
+  <div class="ui-shell">
+    <header class="ui-topbar">
+      <div class="ui-brand">
+        <span class="ui-brand__name">冯氏着色</span>
+        <span class="ui-brand__meta">HW3 · 黄昏湖畔 · 冯氏着色</span>
+      </div>
+      <span class="ui-topbar__rule"></span>
+      <div class="ui-hints" data-ui="hints"></div>
+      <div class="ui-topbar__actions">
+        <span class="ui-live"><span class="ui-live__dot"></span><span data-cell="mode">最终画面</span></span>
+        <button class="ui-icon-button" type="button" data-action="command" title="命令索引 Ctrl+K" aria-label="命令索引">K</button>
+        <button class="ui-icon-button" type="button" data-action="help" title="快捷键 ?" aria-label="快捷键">?</button>
+        <button class="ui-icon-button" type="button" data-action="rack" title="收起或展开参数面板" aria-label="收起或展开参数面板">R</button>
+        <button class="ui-icon-button" type="button" data-action="focus" title="沉浸模式 F" aria-label="沉浸模式">F</button>
+      </div>
+    </header>
+
+    <main class="ui-stage">
+      <div class="ui-viewport">
+        <canvas id="canvas" aria-label="黄昏湖畔镜面与半透明展台"></canvas>
+        <div class="scene-fallback" id="scene-fallback" hidden>
+          <p class="scene-fallback__title">无法启动 WEBGL2</p>
+          <p class="scene-fallback__text" data-ui="fallback-message"></p>
+        </div>
+      </div>
+
+      <span class="ui-corner" data-corner="tl"></span>
+      <span class="ui-corner" data-corner="tr"></span>
+      <span class="ui-corner" data-corner="bl"></span>
+      <span class="ui-corner" data-corner="br"></span>
+
+      <div class="ui-viewport__stamp"><strong>黄昏湖畔</strong> · 镜面与半透明</div>
+      <div class="ui-viewport__meta"><span data-cell="scene-meta">CAM 020° / 072° / 7.4 · LIGHT −128° / 074°</span></div>
+
+      <div class="ui-guide" data-ui="guide" hidden>
+        <span class="ui-guide__row"><b>C / V</b>切换点光源与平行光</span>
+        <span class="ui-guide__row"><b>P / Space</b>切换渲染视图 / 重置场景</span>
+        <span class="ui-guide__row"><b>Ctrl+K / ?</b>命令索引 / 快捷键</span>
+        <button class="ui-guide__dismiss" type="button" data-guide="dismiss">知道了</button>
+      </div>
+
+      <div class="ui-handles">
+        <button class="ui-handle" type="button" data-action="topbar" title="收起或展开顶栏" aria-label="收起或展开顶栏">TOP</button>
+        <button class="ui-handle" type="button" data-action="ledge" title="收起或展开状态账本" aria-label="收起或展开状态账本">HUD</button>
+      </div>
+    </main>
+
+    <aside class="ui-rack" data-ui="rack">
+      <div class="ui-rack__head">
+        <span class="ui-rack__title">渲染参数</span>
+        <span class="ui-rack__meta">01—04</span>
+        <button class="ui-icon-button" type="button" data-action="rack" title="收起参数面板" aria-label="收起参数面板">R</button>
+      </div>
+      <div data-ui="rack-body"></div>
+    </aside>
+
+    <nav class="ui-rail" data-ui="rail" aria-label="参数面板侧边栏">
+      <span class="ui-rail__label">参数</span>
+      <button type="button" data-rail="light" title="01 光照">01</button>
+      <button type="button" data-rail="material" title="02 材质">02</button>
+      <button type="button" data-rail="effects" title="03 特效">03</button>
+      <button type="button" data-rail="camera" title="04 相机">04</button>
+      <button type="button" data-action="rack" title="展开参数面板">+</button>
+    </nav>
+
+    <footer class="ui-ledge" data-ui="ledger">
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">光照</span>
+        <span class="ui-ledge__value" data-cell="light">点光源 · 10.5 m</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">相机</span>
+        <span class="ui-ledge__value" data-cell="camera">50° · 7.4 m</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">特效</span>
+        <span class="ui-ledge__value" data-cell="effects">7 / 7 启用</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">渲染视图</span>
+        <span class="ui-ledge__value" data-cell="pass">最终画面</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">提示</span>
+        <span class="ui-ledge__value" data-ui="ledger-echo">就绪</span>
+      </div>
+    </footer>
+  </div>
+
+  <div class="ui-command" data-ui="command-index" hidden></div>
+  <div class="ui-keys" data-ui="key-ledger" hidden></div>
+  <div class="ui-echo" data-ui="echo" data-visible="false" role="status" aria-live="polite"></div>
+
+  <img id="cubeTexImage" src="container.png" alt="" hidden>
+  <img id="planeTexImage" src="wood.png" alt="" hidden>
+
+  <script src="./Common/webgl-utils.js"></script>
+  <script src="./Common/initShaders2.js"></script>
+  <script src="./Common/MVnew.js"></script>
+  <script src="Models.js?v=20261122v"></script>
+  <script src="configMaterialParameters.js?v=20261122v"></script>
+  <script src="configTexture.js?v=20261122v"></script>
+  <script src="scene-utils.js?v=20261122v"></script>
+  <script src="../../../ui-system/system.js"></script>
+  <script src="commands.js?v=20261122v"></script>
+  <script src="Phongshading.js?v=20261122v"></script>
+  <script src="ui.js?v=20261122v"></script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+/*
+ * page.css
+ * 只做页面级布局：画布铺满 stage，叠加层与首次引导定位。
+ * 颜色、字体、控件外观全部来自 ui-system/system.css。
+ */
+
+@layer page {
+  .ui-stage {
+    background: var(--ui-bg);
+  }
+
+  #canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  #canvas:active {
+    cursor: grabbing;
+  }
+
+  .ui-viewport__meta {
+    padding: 2px 6px;
+    background: var(--ui-bar);
+  }
+
+  /* 中文标签不再跟随拉丁大写标签的宽字距 */
+  .ui-brand__name,
+  .ui-rack__title,
+  .ui-ledge__label,
+  .ui-viewport__stamp {
+    letter-spacing: 0.04em;
+  }
+
+  .ui-brand__name {
+    font-size: 14px;
+  }
+
+  .scene-fallback {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    gap: 8px;
+    padding: var(--ui-pad);
+    background: var(--ui-bg);
+    color: var(--ui-muted);
+    font-family: var(--ui-font-body);
+    font-size: var(--ui-text-body);
+    text-align: center;
+  }
+
+  .scene-fallback__title {
+    margin: 0;
+    color: var(--ui-accent);
+    font-family: var(--ui-font-mono);
+    font-size: var(--ui-text-caption);
+    letter-spacing: 0.14em;
+  }
+
+  .scene-fallback__text {
+    margin: 0;
+    max-width: 42ch;
+    line-height: 1.7;
+  }
+
+  .ui-guide {
+    position: absolute;
+    left: 22px;
+    bottom: 64px;
+    z-index: 5;
+    display: grid;
+    gap: 6px;
+    padding: 8px 12px;
+    border-left: 2px solid var(--ui-accent);
+    background: var(--ui-bar);
+    color: var(--ui-muted);
+    font-family: var(--ui-font-body);
+    font-size: var(--ui-text-micro);
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+    max-width: 320px;
+  }
+
+  .ui-guide__row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .ui-guide__row b {
+    color: var(--ui-ink);
+    font-family: var(--ui-font-mono);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  .ui-guide__dismiss {
+    justify-self: start;
+    padding: 0 0 1px;
+    border: 0;
+    border-bottom: 1px solid var(--ui-line-strong);
+    background: transparent;
+    color: var(--ui-accent);
+    font-family: var(--ui-font-label);
+    font-size: var(--ui-text-micro);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+
+  .ui-guide__dismiss:hover {
+    border-bottom-color: var(--ui-accent);
+  }
+
+  html[data-focus="on"] .ui-guide {
+    display: none;
+  }
+}

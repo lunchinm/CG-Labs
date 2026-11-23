@@ -1,0 +1,62 @@
+{
+  "viewport": [1440, 900],
+  "url": "http://127.0.0.1:8123/%E5%AE%9E%E9%AA%8C/3/3/Phongshading.html",
+  "cases": [
+    {
+      "id": "01-default",
+      "note": "默认机位 20/72/7.4 · 玻璃档（默认）",
+      "state": {},
+      "probes": {
+        "cube": [470, 360, 120, 120],
+        "wood-real": [860, 640, 120, 90],
+        "plinth": [520, 640, 90, 50],
+        "sky": [200, 90, 160, 60]
+      }
+    },
+    {
+      "id": "02-mirror",
+      "note": "镜面档（透明混合关）",
+      "state": { "enableTransparent": false }
+    },
+    {
+      "id": "03-nomirror",
+      "note": "环境反射关闭",
+      "state": { "enableReflect": false }
+    },
+    {
+      "id": "04-nofog",
+      "note": "雾浓度 0",
+      "state": { "fogDensity": 0.0 }
+    },
+    {
+      "id": "05-low",
+      "note": "低仰角 25°",
+      "state": { "cameraElevation": 25, "cameraDist": 8.0 }
+    },
+    {
+      "id": "06-usercam",
+      "note": "验收机位 −188/83/3.8",
+      "state": { "cameraAzimuth": -188, "cameraElevation": 83, "cameraDist": 3.8 }
+    },
+    {
+      "id": "07-pass-reflect",
+      "note": "渲染视图 · 环境反射",
+      "state": { "pass": 2 }
+    },
+    {
+      "id": "08-pass-glass",
+      "note": "渲染视图 · 透明度",
+      "state": { "pass": 5 }
+    },
+    {
+      "id": "09-pass-shadow",
+      "note": "渲染视图 · 阴影",
+      "state": { "pass": 1 }
+    },
+    {
+      "id": "10-directional",
+      "note": "平行光",
+      "state": { "lightType": 1 }
+    }
+  ]
+}

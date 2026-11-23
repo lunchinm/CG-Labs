@@ -1,0 +1,123 @@
+@import url("../../base.css");
+
+/* ==========================================================================
+   V1 暮色测量台 / Dusk Survey
+   石墨底 + 琥珀读数 + 测绘刻度。只覆盖 token 与少量组件形态，不改布局。
+   ========================================================================== */
+
+@layer tokens {
+  :root {
+    --ui-font-display: "IBM Plex Sans", "LXGW WenKai", sans-serif;
+    --ui-font-body: "IBM Plex Sans", "LXGW WenKai", sans-serif;
+    --ui-font-mono: "Iosevka", "LXGW WenKai", monospace;
+
+    --ui-bg: #0e1319;
+    --ui-bar: #101720;
+    --ui-surface: #151c24;
+    --ui-surface-2: #1a222c;
+    --ui-surface-3: #202a35;
+    --ui-ink: #e9e3d8;
+    --ui-muted: #94a1ae;
+    --ui-faint: #5f6b77;
+    --ui-line: rgba(233, 227, 216, 0.14);
+    --ui-line-strong: rgba(233, 227, 216, 0.28);
+    --ui-accent: #e8a45c;
+    --ui-accent-ink: #0e1319;
+    --ui-cool: #7fa6b8;
+    --ui-focus: #e8a45c;
+
+    --ui-scene-sky: #33415a;
+    --ui-scene-sky-2: #5a6b80;
+    --ui-scene-mountain: #46536a;
+    --ui-scene-water: #22303f;
+    --ui-scene-floor: #7a4f2e;
+    --ui-scene-floor-2: #8c5d36;
+    --ui-scene-plank: #5e3b20;
+  }
+}
+
+@layer components {
+  /* 顶栏：图号用等宽，标题用窄体大写 */
+  .ui-brand__name {
+    letter-spacing: 0.2em;
+  }
+
+  .ui-topbar {
+    background: var(--ui-bar);
+  }
+
+  /* 抽屉标题：测量仪表的编号标签 */
+  .ui-drawer__title {
+    letter-spacing: 0.18em;
+  }
+
+  .ui-drawer__index {
+    letter-spacing: 0.08em;
+    color: var(--ui-cool);
+  }
+
+  .ui-drawer[data-open="true"] .ui-drawer__index {
+    color: var(--ui-accent);
+  }
+
+  /* 滑杆：竖线滑块加一条横向游标，像测绘标尺 */
+  .ui-gauge__thumb::before {
+    position: absolute;
+    top: 6px;
+    left: -4px;
+    width: 10px;
+    height: 1px;
+    background: var(--ui-accent);
+    content: "";
+  }
+
+  .ui-gauge__fill {
+    opacity: 0.4;
+  }
+
+  .ui-gauge__ticks span:nth-child(5n + 1) {
+    background: var(--ui-cool);
+    opacity: 0.55;
+  }
+
+  /* 档位：连体单元格，选中只留底部琥珀线与琥珀字 */
+  .ui-bank {
+    background: var(--ui-surface-2);
+  }
+
+  .ui-bank button[data-active="true"] {
+    background: transparent;
+  }
+
+  /* 机械开关：方形 LED，按下时只有灯与文字变亮 */
+  .ui-key__led {
+    box-shadow: none;
+  }
+
+  .ui-key[data-active="true"] {
+    background: var(--ui-surface-2);
+  }
+
+  /* 状态账本：标签用冷蓝，读数用琥珀焦点 */
+  .ui-ledge__label {
+    color: var(--ui-cool);
+  }
+
+  .ui-ledge__value {
+    letter-spacing: 0.02em;
+  }
+
+  /* 命令索引的选中行：左侧琥珀条 + 等宽编号 */
+  .ui-command__row[data-active="true"] .ui-command__label {
+    color: var(--ui-ink);
+  }
+
+  .ui-command__group {
+    color: var(--ui-cool);
+  }
+
+  /* 边轨：编号竖排，悬停时琥珀 */
+  .ui-rail button:hover {
+    color: var(--ui-accent);
+  }
+}

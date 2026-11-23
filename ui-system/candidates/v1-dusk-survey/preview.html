@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dusk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>V1 暮色测量台 · UI System Preview</title>
+  <link rel="stylesheet" href="system.css">
+</head>
+<body>
+  <div class="ui-shell">
+    <header class="ui-topbar">
+      <div class="ui-brand">
+        <span class="ui-brand__name">PHONG SHADING</span>
+        <span class="ui-brand__meta">HW3 · SHEET 01 / REV A</span>
+      </div>
+      <span class="ui-topbar__rule"></span>
+      <div class="ui-hints" data-ui="hints"></div>
+      <div class="ui-topbar__actions">
+        <span class="ui-live"><span class="ui-live__dot"></span><span data-cell="mode">FINAL</span></span>
+        <button class="ui-icon-button" type="button" data-action="command" title="命令索引 Ctrl+K" aria-label="命令索引">K</button>
+        <button class="ui-icon-button" type="button" data-action="help" title="键位账本 ?" aria-label="键位账本">?</button>
+        <button class="ui-icon-button" type="button" data-action="rack" title="收起或展开仪表架" aria-label="收起或展开仪表架">R</button>
+        <button class="ui-icon-button" type="button" data-action="focus" title="沉浸模式 F" aria-label="沉浸模式">F</button>
+      </div>
+    </header>
+
+    <main class="ui-stage">
+      <div class="ui-viewport">
+        <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" role="img" aria-label="黄昏湖畔场景线稿">
+          <style>
+            .sc-sky { fill: var(--ui-scene-sky); }
+            .sc-band { fill: var(--ui-scene-sky-2); opacity: .55; }
+            .sc-sun { fill: #f0c98a; opacity: .8; }
+            .sc-ridge-far { fill: var(--ui-scene-mountain); opacity: .62; }
+            .sc-ridge { fill: var(--ui-scene-mountain); }
+            .sc-water { fill: var(--ui-scene-water); }
+            .sc-ripple line { stroke: rgba(200, 220, 235, .14); stroke-width: 1; }
+            .sc-deck { fill: var(--ui-scene-floor); }
+            .sc-deck-band { fill: var(--ui-scene-floor-2); opacity: .5; }
+            .sc-plank line, .sc-seam line { stroke: var(--ui-scene-plank); stroke-width: 1; }
+            .sc-plank line { opacity: .5; }
+            .sc-seam line { opacity: .3; }
+            .sc-shadow { fill: var(--ui-scene-shadow); opacity: .42; }
+            .sc-pool { fill: var(--ui-scene-light); opacity: .2; }
+            .sc-face-left { fill: #3d5a3a; fill-opacity: .86; stroke: rgba(233, 227, 216, .35); stroke-width: 1; }
+            .sc-face-right { fill: #476a43; fill-opacity: .86; stroke: rgba(233, 227, 216, .35); stroke-width: 1; }
+            .sc-face-top { fill: #55794f; fill-opacity: .9; stroke: rgba(233, 227, 216, .45); stroke-width: 1; }
+            .sc-foliage { fill: var(--ui-scene-foliage); }
+            .sc-foliage-2 { fill: var(--ui-scene-foliage-2); }
+            .sc-foliage-3 { fill: var(--ui-scene-foliage-3); }
+            .sc-flower-a { fill: var(--ui-scene-flower-a); }
+            .sc-flower-b { fill: var(--ui-scene-flower-b); }
+            .sc-flower-c { fill: var(--ui-scene-flower-c); }
+            .sc-sheen { fill: #cfe0e8; opacity: .16; }
+            .sc-rim { fill: none; stroke: rgba(255, 238, 210, .6); stroke-width: 1.4; }
+            .sc-lamp { fill: var(--ui-scene-light); stroke: rgba(255, 240, 215, .7); stroke-width: 1; }
+            .sc-note line { stroke: rgba(233, 227, 216, .55); stroke-width: 1; }
+            .sc-note circle { fill: var(--ui-accent); }
+            .sc-note text { fill: var(--ui-ink); font-family: var(--ui-font-mono); font-size: 11px; letter-spacing: .08em; }
+            .sc-note .num { fill: var(--ui-accent); }
+          </style>
+
+          <defs>
+            <clipPath id="face-left"><polygon points="466,430 598,476 598,596 466,548"/></clipPath>
+            <clipPath id="face-right"><polygon points="598,476 742,436 742,556 598,596"/></clipPath>
+            <clipPath id="face-top"><polygon points="466,430 610,392 742,436 598,476"/></clipPath>
+          </defs>
+
+          <rect class="sc-sky" width="1200" height="700"/>
+          <rect class="sc-band" x="0" y="286" width="1200" height="46"/>
+          <circle class="sc-sun" cx="886" cy="298" r="24"/>
+          <polygon class="sc-ridge-far" points="0,334 96,308 190,326 286,300 390,330 500,304 610,328 716,302 820,326 930,304 1040,328 1130,306 1200,326 1200,352 0,352"/>
+          <polygon class="sc-ridge" points="0,346 120,326 244,342 360,318 484,344 600,322 720,346 838,322 960,344 1080,324 1200,344 1200,372 0,372"/>
+          <rect class="sc-water" x="0" y="340" width="1200" height="176"/>
+          <g class="sc-ripple">
+            <line x1="0" y1="372" x2="1200" y2="372"/>
+            <line x1="60" y1="392" x2="1140" y2="392"/>
+            <line x1="120" y1="414" x2="1080" y2="414"/>
+            <line x1="180" y1="438" x2="1020" y2="438"/>
+          </g>
+
+          <polygon class="sc-deck" points="150,700 1050,700 830,440 370,440"/>
+          <polygon class="sc-deck-band" points="370,440 830,440 818,474 382,474"/>
+          <g class="sc-plank">
+            <line x1="600" y1="440" x2="150" y2="700"/>
+            <line x1="600" y1="440" x2="262" y2="700"/>
+            <line x1="600" y1="440" x2="374" y2="700"/>
+            <line x1="600" y1="440" x2="486" y2="700"/>
+            <line x1="600" y1="440" x2="600" y2="700"/>
+            <line x1="600" y1="440" x2="714" y2="700"/>
+            <line x1="600" y1="440" x2="826" y2="700"/>
+            <line x1="600" y1="440" x2="938" y2="700"/>
+            <line x1="600" y1="440" x2="1050" y2="700"/>
+          </g>
+          <g class="sc-seam">
+            <line x1="319" y1="500" x2="881" y2="500"/>
+            <line x1="268" y1="560" x2="932" y2="560"/>
+            <line x1="214" y1="630" x2="986" y2="630"/>
+          </g>
+
+          <ellipse class="sc-pool" cx="826" cy="492" rx="104" ry="26"/>
+          <polygon class="sc-shadow" points="520,570 742,556 986,608 780,646 548,614"/>
+
+          <g class="sc-cube">
+            <polygon class="sc-face-top" points="466,430 610,392 742,436 598,476"/>
+            <g clip-path="url(#face-top)">
+              <rect class="sc-foliage-2" x="540" y="410" width="58" height="26"/>
+              <rect class="sc-foliage" x="626" y="420" width="52" height="24"/>
+              <circle class="sc-flower-c" cx="564" cy="420" r="5"/>
+              <circle class="sc-flower-a" cx="600" cy="432" r="4"/>
+            </g>
+
+            <polygon class="sc-face-left" points="466,430 598,476 598,596 466,548"/>
+            <g clip-path="url(#face-left)">
+              <rect class="sc-foliage" x="470" y="452" width="64" height="42"/>
+              <rect class="sc-foliage-3" x="516" y="504" width="72" height="40"/>
+              <rect class="sc-foliage-2" x="472" y="520" width="44" height="34"/>
+              <circle class="sc-flower-a" cx="500" cy="470" r="7"/>
+              <circle class="sc-flower-b" cx="542" cy="500" r="6"/>
+              <circle class="sc-flower-c" cx="486" cy="512" r="4"/>
+              <circle class="sc-flower-a" cx="562" cy="536" r="5"/>
+            </g>
+
+            <polygon class="sc-face-right" points="598,476 742,436 742,556 598,596"/>
+            <g clip-path="url(#face-right)">
+              <rect class="sc-foliage-2" x="606" y="486" width="70" height="46"/>
+              <rect class="sc-foliage" x="664" y="470" width="64" height="52"/>
+              <rect class="sc-foliage-3" x="626" y="540" width="66" height="40"/>
+              <circle class="sc-flower-b" cx="646" cy="504" r="6"/>
+              <circle class="sc-flower-c" cx="700" cy="494" r="4"/>
+              <circle class="sc-flower-a" cx="672" cy="550" r="6"/>
+            </g>
+
+            <polygon class="sc-sheen" points="598,486 742,446 742,506 598,546"/>
+            <polyline class="sc-rim" points="466,430 610,392 742,436"/>
+          </g>
+
+          <g class="sc-lamp">
+            <rect x="812" y="326" width="28" height="28"/>
+            <rect x="812" y="326" width="28" height="8" opacity=".55"/>
+          </g>
+
+          <g class="sc-note">
+            <line x1="410" y1="352" x2="330" y2="318"/>
+            <circle cx="410" cy="352" r="3"/>
+            <text x="272" y="312"><tspan class="num">01</tspan> FOG / 地平线同色</text>
+
+            <line x1="702" y1="470" x2="780" y2="412"/>
+            <circle cx="702" cy="470" r="3"/>
+            <text x="786" y="408"><tspan class="num">02</tspan> REFLECT / SCHLICK</text>
+
+            <line x1="532" y1="520" x2="430" y2="560"/>
+            <circle cx="532" cy="520" r="3"/>
+            <text x="316" y="574"><tspan class="num">03</tspan> GLASS / OPACITY 0.55</text>
+
+            <line x1="470" y1="612" x2="372" y2="644"/>
+            <circle cx="470" cy="612" r="3"/>
+            <text x="282" y="658"><tspan class="num">04</tspan> BUMP / dFdx</text>
+
+            <line x1="792" y1="568" x2="862" y2="618"/>
+            <circle cx="792" cy="568" r="3"/>
+            <text x="872" y="632"><tspan class="num">05</tspan> PCF / 3×3</text>
+          </g>
+        </svg>
+      </div>
+
+      <span class="ui-corner" data-corner="tl"></span>
+      <span class="ui-corner" data-corner="tr"></span>
+      <span class="ui-corner" data-corner="bl"></span>
+      <span class="ui-corner" data-corner="br"></span>
+
+      <div class="ui-viewport__stamp"><strong>SCENE A</strong> · DUSK LAKE / 3-4 VIEW</div>
+      <div class="ui-viewport__meta">CAM 018° / 076° / 6.5 · LIGHT −35° / 062° · SHADOW 2048</div>
+
+      <div class="ui-handles">
+        <button class="ui-handle" type="button" data-action="topbar" title="收起或展开顶栏">TOP</button>
+        <button class="ui-handle" type="button" data-action="ledge" title="收起或展开状态账本">HUD</button>
+      </div>
+    </main>
+
+    <aside class="ui-rack" data-ui="rack">
+      <div class="ui-rack__head">
+        <span class="ui-rack__title">CONTROL RACK</span>
+        <span class="ui-rack__meta">04 SECTIONS</span>
+        <button class="ui-icon-button" type="button" data-action="rack" title="收起仪表架" aria-label="收起仪表架">R</button>
+      </div>
+      <div data-ui="rack-body"></div>
+    </aside>
+
+    <nav class="ui-rail" data-ui="rail" aria-label="仪表架边轨">
+      <span class="ui-rail__label">RACK</span>
+      <button type="button" data-rail="light" title="01 光照">01</button>
+      <button type="button" data-rail="material" title="02 材质">02</button>
+      <button type="button" data-rail="effects" title="03 特效">03</button>
+      <button type="button" data-rail="camera" title="04 相机">04</button>
+      <button type="button" data-action="rack" title="展开仪表架">+</button>
+    </nav>
+
+    <footer class="ui-ledge" data-ui="ledger">
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">LIGHT</span>
+        <span class="ui-ledge__value" data-cell="light">POINT · 6.0 m</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">CAMERA</span>
+        <span class="ui-ledge__value" data-cell="camera">52° · 6.5 m</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">EFFECTS</span>
+        <span class="ui-ledge__value" data-cell="effects">6 / 6 ON</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">PASS</span>
+        <span class="ui-ledge__value" data-cell="pass">FINAL</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">ECHO</span>
+        <span class="ui-ledge__value" data-ui="ledger-echo">READY</span>
+      </div>
+    </footer>
+  </div>
+
+  <div class="ui-command" data-ui="command-index" hidden></div>
+  <div class="ui-keys" data-ui="key-ledger" hidden></div>
+  <div class="ui-echo" data-ui="echo" data-visible="false" role="status" aria-live="polite"></div>
+
+  <script src="../../system.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      var store = UI.store;
+      var PASS = ['FINAL', 'SHADOW', 'REFLECT', 'FOG', 'BUMP', 'GLASS'];
+
+      var DEFAULTS = {
+        lightType: 0,
+        lightDist: 6.0,
+        lightAzimuth: -35,
+        lightElevation: 62,
+        ka: 0.60,
+        kd: 0.85,
+        ks: 0.55,
+        shininess: 96,
+        pass: 0,
+        envMix: 0.65,
+        opacity: 0.55,
+        bumpStrength: 1.0,
+        fogDensity: 0.03,
+        rimStrength: 0.35,
+        aoStrength: 0.35,
+        horizonGlow: 0.18,
+        fov: 52,
+        cameraDist: 6.5,
+        exposure: 1.0,
+        enableShadow: true,
+        enablePCF: true,
+        enableBump: true,
+        enableFog: true,
+        enableReflect: true,
+        enableTransparent: true
+      };
+
+      store.patch(DEFAULTS);
+
+      function q(selector) {
+        return document.querySelector(selector);
+      }
+
+      function wrapAzimuth(value) {
+        var next = ((value + 180) % 360 + 360) % 360 - 180;
+        return next;
+      }
+
+      // ---------------------------------------------------------- commands
+
+      UI.registerCommand({
+        id: 'light.point', group: '01 LIGHT', label: '点光源 POINT', keys: ['C'],
+        run: function (s) { s.set('lightType', 0); },
+        detail: function () { return 'LIGHT · POINT'; }
+      });
+
+      UI.registerCommand({
+        id: 'light.dir', group: '01 LIGHT', label: '平行光 DIR', keys: ['V'],
+        run: function (s) { s.set('lightType', 1); },
+        detail: function () { return 'LIGHT · DIRECTIONAL'; }
+      });
+
+      UI.registerCommand({
+        id: 'light.orbit.left', group: '01 LIGHT', label: '光源左转 5°', keys: ['A'],
+        run: function (s) { s.set('lightAzimuth', wrapAzimuth(s.get('lightAzimuth') - 5)); },
+        detail: function (s) { return 'AZIM ' + s.get('lightAzimuth').toFixed(0) + '°'; }
+      });
+
+      UI.registerCommand({
+        id: 'light.orbit.right', group: '01 LIGHT', label: '光源右转 5°', keys: ['D'],
+        run: function (s) { s.set('lightAzimuth', wrapAzimuth(s.get('lightAzimuth') + 5)); },
+        detail: function (s) { return 'AZIM ' + s.get('lightAzimuth').toFixed(0) + '°'; }
+      });
+
+      UI.registerCommand({
+        id: 'light.dist.inc', group: '01 LIGHT', label: '光源距离 +0.5', keys: [],
+        run: function (s) { s.set('lightDist', Math.min(12, Number((s.get('lightDist') + 0.5).toFixed(1)))); },
+        detail: function (s) { return 'DIST ' + s.get('lightDist').toFixed(1) + ' m'; }
+      });
+
+      UI.registerCommand({
+        id: 'light.dist.dec', group: '01 LIGHT', label: '光源距离 −0.5', keys: [],
+        run: function (s) { s.set('lightDist', Math.max(2, Number((s.get('lightDist') - 0.5).toFixed(1)))); },
+        detail: function (s) { return 'DIST ' + s.get('lightDist').toFixed(1) + ' m'; }
+      });
+
+      UI.registerCommand({
+        id: 'camera.fov.inc', group: '02 CAMERA', label: '视场角 +2°', keys: ['M'],
+        run: function (s) { s.set('fov', Math.min(90, s.get('fov') + 2)); },
+        detail: function (s) { return 'FOV ' + s.get('fov') + '°'; }
+      });
+
+      UI.registerCommand({
+        id: 'camera.fov.dec', group: '02 CAMERA', label: '视场角 −2°', keys: ['N'],
+        run: function (s) { s.set('fov', Math.max(20, s.get('fov') - 2)); },
+        detail: function (s) { return 'FOV ' + s.get('fov') + '°'; }
+      });
+
+      UI.registerCommand({
+        id: 'camera.exposure.reset', group: '02 CAMERA', label: '曝光复位 1.00', keys: [],
+        run: function (s) { s.set('exposure', 1.0); },
+        detail: function () { return 'EXPOSURE 1.00'; }
+      });
+
+      UI.registerCommand({
+        id: 'view.pass', group: '03 VIEW', label: '切换渲染通道', keys: ['P'],
+        run: function (s) { s.set('pass', (s.get('pass') + 1) % PASS.length); },
+        detail: function (s) { return 'PASS ' + PASS[s.get('pass')]; }
+      });
+
+      UI.registerCommand({
+        id: 'view.focus', group: '03 VIEW', label: '沉浸模式', keys: ['F'],
+        run: function () { UI.toggleFocus(); },
+        detail: function () { return UI.getLayout().focus ? 'IMMERSIVE ON' : 'IMMERSIVE OFF'; }
+      });
+
+      UI.registerCommand({
+        id: 'scene.reset', group: '04 SCENE', label: '重置场景参数', keys: ['Space'],
+        run: function (s) { s.patch(DEFAULTS); s.set('pass', 0); },
+        detail: function () { return 'SCENE RESET'; }
+      });
+
+      UI.registerCommand({
+        id: 'ui.commandIndex', group: '05 SYSTEM', label: '命令索引', keys: ['Ctrl+K', '/'],
+        closeLayer: false,
+        run: function () { UI.openCommandIndex(); },
+        detail: function () { return 'COMMAND INDEX'; }
+      });
+
+      UI.registerCommand({
+        id: 'ui.help', group: '05 SYSTEM', label: '键位账本', keys: ['?'],
+        closeLayer: false,
+        run: function () { UI.openKeyLedger(); },
+        detail: function () { return 'KEY LEDGER'; }
+      });
+
+      [
+        ['effects.shadow', '阴影 SHADOW', 'enableShadow'],
+        ['effects.pcf', 'PCF 反走样', 'enablePCF'],
+        ['effects.bump', '凹凸 BUMP', 'enableBump'],
+        ['effects.fog', '雾化 FOG', 'enableFog'],
+        ['effects.reflect', '环境反射 REFLECT', 'enableReflect'],
+        ['effects.glass', '半透明 GLASS', 'enableTransparent']
+      ].forEach(function (entry) {
+        UI.registerCommand({
+          id: entry[0], group: '03 VIEW', label: entry[1], keys: [],
+          run: function (s) { s.set(entry[2], !s.get(entry[2])); },
+          detail: function (s) { return entry[2].replace('enable', '').toUpperCase() + ' ' + (s.get(entry[2]) ? 'ON' : 'OFF'); }
+        });
+      });
+
+      // ---------------------------------------------------------- panel
+
+      var schema = [
+        {
+          id: 'light', index: '01', title: 'LIGHT',
+          meta: function (s) { return s.lightType ? 'DIR' : 'POINT'; },
+          rows: [
+            { type: 'bank', id: 'lightType', label: 'TYPE', command: 'light.point', options: [
+              { value: 0, label: 'POINT' },
+              { value: 1, label: 'DIR' }
+            ] },
+            { type: 'gauge', id: 'lightDist', label: 'DIST', min: 2, max: 12, step: 0.1, unit: 'm', command: 'light.dist.inc' },
+            { type: 'gauge', id: 'lightAzimuth', label: 'AZIM', min: -180, max: 180, step: 1, unit: '°', digits: 0, command: 'light.orbit.right' },
+            { type: 'gauge', id: 'lightElevation', label: 'ELEV', min: 5, max: 89, step: 1, unit: '°', digits: 0 },
+            { type: 'note', text: 'A / D 环绕光源；距离与高度拖动刻度线，双击复位。' }
+          ]
+        },
+        {
+          id: 'material', index: '02', title: 'MATERIAL',
+          meta: function (s) { return 'KA ' + Number(s.ka).toFixed(2); },
+          rows: [
+            { type: 'gauge', id: 'ka', label: 'KA', min: 0, max: 1, step: 0.01 },
+            { type: 'gauge', id: 'kd', label: 'KD', min: 0, max: 1, step: 0.01 },
+            { type: 'gauge', id: 'ks', label: 'KS', min: 0, max: 1, step: 0.01 },
+            { type: 'gauge', id: 'shininess', label: 'SHINE', min: 8, max: 256, step: 1, digits: 0 },
+            { type: 'note', text: '木纹亮度调制高光：暗纹 ×0.35，亮纹 ×1.0。' }
+          ]
+        },
+        {
+          id: 'effects', index: '03', title: 'EFFECTS',
+          meta: function (s) { return PASS[s.pass]; },
+          rows: [
+            { type: 'bank', id: 'pass', label: 'PASS', compact: true, command: 'view.pass', options: [
+              { value: 0, label: 'FINAL' },
+              { value: 1, label: 'SHADOW' },
+              { value: 2, label: 'REFLECT' },
+              { value: 3, label: 'FOG' },
+              { value: 4, label: 'BUMP' },
+              { value: 5, label: 'GLASS' }
+            ] },
+            { type: 'gauge', id: 'envMix', label: 'ENV', min: 0, max: 1, step: 0.01, command: 'effects.reflect' },
+            { type: 'gauge', id: 'opacity', label: 'GLASS', min: 0.05, max: 1, step: 0.01, command: 'effects.glass' },
+            { type: 'gauge', id: 'bumpStrength', label: 'BUMP', min: 0, max: 2, step: 0.01, command: 'effects.bump' },
+            { type: 'gauge', id: 'fogDensity', label: 'FOG', min: 0, max: 0.08, step: 0.001, digits: 3, command: 'effects.fog' },
+            { type: 'key', id: 'enableShadow', label: 'SHADOW', command: 'effects.shadow' },
+            { type: 'key', id: 'enablePCF', label: 'PCF', command: 'effects.pcf' },
+            { type: 'key', id: 'enableReflect', label: 'REFLECT', command: 'effects.reflect' },
+            { type: 'key', id: 'enableFog', label: 'FOG', command: 'effects.fog' },
+            { type: 'key', id: 'enableTransparent', label: 'GLASS', command: 'effects.glass' },
+            { type: 'fold', label: 'MORE · 03 PARAMETERS', rows: [
+              { type: 'gauge', id: 'rimStrength', label: 'RIM', min: 0, max: 1, step: 0.01 },
+              { type: 'gauge', id: 'aoStrength', label: 'AO', min: 0, max: 1, step: 0.01 },
+              { type: 'gauge', id: 'horizonGlow', label: 'GLOW', min: 0, max: 1, step: 0.01 }
+            ] }
+          ]
+        },
+        {
+          id: 'camera', index: '04', title: 'CAMERA',
+          meta: function (s) { return Number(s.exposure).toFixed(2) + ' EV'; },
+          rows: [
+            { type: 'gauge', id: 'fov', label: 'FOV', min: 20, max: 90, step: 1, unit: '°', digits: 0, command: 'camera.fov.inc' },
+            { type: 'gauge', id: 'cameraDist', label: 'DIST', min: 3, max: 12, step: 0.1, unit: 'm' },
+            { type: 'gauge', id: 'exposure', label: 'EXPO', min: 0.6, max: 1.6, step: 0.01, digits: 2, command: 'camera.exposure.reset' },
+            { type: 'note', text: 'ACES 色调映射后再输出；曝光只作用于最终合成。' }
+          ]
+        }
+      ];
+
+      UI.buildPanel(q('[data-ui="rack-body"]'), schema, store);
+
+      // ---------------------------------------------------------- hints
+
+      var HINTS = {
+        light: [['C', '点光'], ['V', '平行光'], ['A/D', '环绕'], ['K', '索引']],
+        material: [['↑↓', '微调读数'], ['K', '索引'], ['?', '键位']],
+        effects: [['P', '通道循环'], ['K', '索引'], ['?', '键位']],
+        camera: [['M/N', '视场角'], ['F', '沉浸'], ['K', '索引']],
+        'default': [['C', '点光'], ['V', '平行光'], ['P', '通道'], ['F', '沉浸'], ['/', '命令']]
+      };
+
+      function renderHints() {
+        var layout = UI.getLayout();
+        var context = layout.drawers.length ? layout.drawers[layout.drawers.length - 1] : 'default';
+        var list = HINTS[context] || HINTS.default;
+        var host = q('[data-ui="hints"]');
+        host.textContent = '';
+        list.forEach(function (item) {
+          var hint = document.createElement('span');
+          hint.className = 'ui-hint';
+          var kbd = document.createElement('span');
+          kbd.className = 'ui-kbd';
+          kbd.textContent = item[0];
+          hint.appendChild(kbd);
+          hint.appendChild(document.createTextNode(item[1]));
+          host.appendChild(hint);
+        });
+      }
+
+      UI.on('layout', renderHints);
+
+      // ---------------------------------------------------------- ledger
+
+      function renderLedger(state) {
+        q('[data-cell="light"]').textContent = (state.lightType ? 'DIR' : 'POINT') + ' · ' + Number(state.lightDist).toFixed(1) + ' m';
+        q('[data-cell="camera"]').textContent = Number(state.fov).toFixed(0) + '° · ' + Number(state.cameraDist).toFixed(1) + ' m';
+        var fx = ['enableShadow', 'enablePCF', 'enableBump', 'enableFog', 'enableReflect', 'enableTransparent'].filter(function (key) {
+          return state[key];
+        }).length;
+        q('[data-cell="effects"]').textContent = fx + ' / 6 ON';
+        q('[data-cell="pass"]').textContent = PASS[state.pass];
+        q('[data-cell="mode"]').textContent = PASS[state.pass];
+      }
+
+      store.subscribe(renderLedger);
+      renderLedger(store.get());
+
+      UI.mount(document);
+      renderHints();
+    })();
+  </script>
+</body>
+</html>

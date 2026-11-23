@@ -1,0 +1,126 @@
+{
+  "01-default": {
+    "note": "默认机位 · 玻璃档"
+  },
+  "02-first-run": {
+    "note": "首次进入的三行引导",
+    "fresh": true
+  },
+  "03-pass-shadow": {
+    "note": "阴影通道",
+    "state": {
+      "pass": 1
+    }
+  },
+  "04-pass-reflect": {
+    "note": "环境反射通道",
+    "state": {
+      "pass": 2
+    }
+  },
+  "05-pass-fog": {
+    "note": "雾效通道",
+    "state": {
+      "pass": 3
+    }
+  },
+  "06-pass-normal": {
+    "note": "法线通道",
+    "state": {
+      "pass": 4
+    }
+  },
+  "07-pass-alpha": {
+    "note": "透明度通道",
+    "state": {
+      "pass": 5
+    }
+  },
+  "08-directional": {
+    "note": "平行光",
+    "state": {
+      "lightType": 1
+    }
+  },
+  "09-bump-on": {
+    "note": "凹凸开（高光调低、光源抬高）",
+    "state": {
+      "ks": 0.2,
+      "lightElevation": 84
+    }
+  },
+  "10-bump-off": {
+    "note": "凹凸关",
+    "state": {
+      "ks": 0.2,
+      "lightElevation": 84,
+      "enableBump": false
+    }
+  },
+  "11-fog-off": {
+    "note": "关闭雾效",
+    "state": {
+      "fogDensity": 0.0
+    }
+  },
+  "12-reflect-off": {
+    "note": "关闭环境反射",
+    "state": {
+      "enableReflect": false
+    }
+  },
+  "13-mirror": {
+    "note": "透明混合关 · 镜面档",
+    "state": {
+      "enableTransparent": false
+    }
+  },
+  "14-shadow-off": {
+    "note": "关闭阴影",
+    "state": {
+      "enableShadow": false
+    }
+  },
+  "15-pcf-off": {
+    "note": "关闭 PCF",
+    "state": {
+      "pass": 1,
+      "enablePCF": false
+    }
+  },
+  "16-pcf-on": {
+    "note": "开启 PCF",
+    "state": {
+      "pass": 1,
+      "enablePCF": true
+    }
+  },
+  "17-rack-collapsed": {
+    "note": "参数面板收起为侧边栏",
+    "js": "document.querySelector('.ui-rack__head [data-action=\"rack\"]').click()"
+  },
+  "18-immersive": {
+    "note": "沉浸模式",
+    "js": "UI.toggleFocus()"
+  },
+  "19-command-index": {
+    "note": "命令索引",
+    "js": "UI.openCommandIndex()"
+  },
+  "20-key-ledger": {
+    "note": "快捷键",
+    "js": "UI.openKeyLedger()"
+  },
+  "21-effects-panel": {
+    "note": "特效分组展开",
+    "fresh": true,
+    "js": "document.querySelector('[data-ui=\"drawer\"][data-group=\"effects\"] .ui-drawer__head').click(); document.querySelectorAll('[data-ui=\"fold\"]').forEach(function (fold) { if (fold.textContent.indexOf('正方体') === 0) fold.click(); });"
+  },
+  "22-narrow": {
+    "note": "900 px 窄屏",
+    "viewport": [
+      900,
+      900
+    ]
+  }
+}
