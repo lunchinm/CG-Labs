@@ -16,7 +16,7 @@ $targets = Get-ChildItem -Path $root -Recurse -File -Include *.css, *.js, *.html
 $externalHtml = Get-ChildItem -Path $projectRoot -Recurse -File -Filter *.html |
   Where-Object {
     $rel = $_.FullName.Substring($projectRoot.Length + 1)
-    ($_.DirectoryName -match '\\3$') -or (($rel -split '\\').Count -le 3)
+    ($_.DirectoryName -match '\\[123]$') -or (($rel -split '\\').Count -le 3)
   }
 $targets += $externalHtml
 
@@ -24,8 +24,9 @@ $externalCode = Get-ChildItem -Path $projectRoot -Recurse -File |
   Where-Object {
     ($_.Extension -eq '.js' -or $_.Extension -eq '.css') -and
     $_.FullName -notmatch '\\ui-system\\' -and
-    $_.FullName -notmatch '\\HW3_todo\\' -and
-    $_.DirectoryName -match '\\3(\\|$)'
+    $_.FullName -notmatch '\\Common\\' -and
+    $_.FullName -notmatch '\\HW\d_todo\\' -and
+    $_.DirectoryName -match '\\[123](\\|$)'
   }
 $targets += $externalCode
 

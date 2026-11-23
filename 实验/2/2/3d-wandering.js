@@ -152,8 +152,8 @@ window.onload = function() {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    // 设置canvas画布背景色（与 #viewport-container 的 #eef1f5 一致）
-    gl.clearColor(0.933, 0.945, 0.961, 1.0);
+    // 画布底色取界面底色 --ui-bg (#121417)，与外壳连成一片
+    gl.clearColor(0.071, 0.078, 0.090, 1.0);
 
     //初始化交互界面上的相关参数
     initViewingParameters();

@@ -1,542 +1,275 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN" data-theme="archive">
 <head>
-    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
-    <title>计算机图形学：3D 场景建模与漫游</title>
-    <style type="text/css">
-        /* ==================================================================
-         * 全局：应用式布局（顶栏 46px + 主体 flex:1 + 状态栏 28px），
-         * 配色语言：浅色 + 强调色 #2f6fdb。
-         * 说明：本页所有图标均为手写内联 SVG（空心矢量轮廓），
-         *       不使用 emoji、表情包、外部图标库或网络图片。
-         * ================================================================== */
-        html, body{
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;                  /* 应用式布局，禁止页面滚动条 */
-            font-family: "Microsoft YaHei", "SimHei", sans-serif;
-            color: #333;
-        }
-        #app{
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-
-        /* ------------------------------------------------------------------
-         * 顶部工具栏
-         * ------------------------------------------------------------------ */
-        #toolbar{
-            flex: 0 0 46px;
-            display: flex;
-            align-items: center;
-            gap: 18px;
-            padding: 0 14px;
-            background: #fff;
-            border-bottom: 1px solid #d6dbe3;
-            user-select: none;
-        }
-        .app-title{
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            font-size: 14px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            color: #2f6fdb;
-            white-space: nowrap;
-        }
-        .app-title svg{ width: 18px; height: 18px; display: block; }
-
-        .toolbar-group{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .group-label{
-            font-size: 12px;
-            color: #888;
-            white-space: nowrap;
-        }
-        .toolbar-right{
-            margin-left: auto;                 /* 右侧按钮组靠右 */
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* 分段按钮（模型 / 视图预设） */
-        .seg{
-            display: flex;
-            border: 1px solid #b9c0ca;
-            border-radius: 6px;
-            overflow: hidden;
-        }
-        .seg button{
-            padding: 5px 10px;
-            font-size: 12px;
-            font-family: inherit;
-            white-space: nowrap;
-            color: #333;
-            background: #f7f8fa;
-            border: none;
-            border-right: 1px solid #b9c0ca;
-            cursor: pointer;
-        }
-        .seg button:last-child{ border-right: none; }
-        .seg button:hover{ background: #e9edf3; }
-        .seg button.active{
-            background: #2f6fdb;
-            color: #fff;
-        }
-
-        /* 工具栏独立按钮 */
-        .btn{
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 10px;
-            font-size: 12px;
-            font-family: inherit;
-            white-space: nowrap;
-            color: #333;
-            background: #f7f8fa;
-            border: 1px solid #b9c0ca;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        .btn:hover{ background: #e9edf3; }
-        .btn svg{ width: 15px; height: 15px; display: block; }
-        .btn-primary{
-            background: #2f6fdb;
-            border-color: #2456ad;
-            color: #fff;
-        }
-        .btn-primary:hover{ background: #2456ad; }
-
-        /* ------------------------------------------------------------------
-         * 主体：视口 + 右侧设置面板
-         * ------------------------------------------------------------------ */
-        #main{
-            flex: 1 1 auto;
-            display: flex;
-            min-height: 0;
-        }
-
-        #viewport-container{
-            position: relative;
-            flex: 1 1 auto;
-            min-width: 0;
-            background: #eef1f5;
-            overflow: hidden;
-        }
-        #canvas{
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        /* 角落 gizmo 的 X/Y/Z 标识：位于 #gizFrame 内部，
-         * 位置由 JS 每帧按 gizmo 自己的 P·V 投影写入。 */
-        .giz-label{
-            position: absolute;
-            font-size: 10px;
-            font-weight: 700;
-            line-height: 1;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
-        }
-        #gizLabelX{ color: #e13b3b; }
-        #gizLabelY{ color: #3ab54a; }
-        #gizLabelZ{ color: #3a6ee1; }
-
-        /* 角落朝向 gizmo 的取景框（与 WebGL 里 scissor 小视口同位置同尺寸）。
-         * 注意：本元素在 DOM 中位于 canvas 之后，会覆盖在小视口之上，
-         * 因此背景必须保持透明，否则会把 WebGL 绘制的 gizmo 蒙上一层白雾。 */
-        #gizFrame{
-            position: absolute;
-            top: 14px;
-            right: 14px;
-            width: 96px;
-            height: 96px;
-            box-sizing: border-box;
-            border: 1px solid #d6dbe3;
-            border-radius: 8px;
-            background: transparent;
-            pointer-events: none;
-        }
-
-        /* 左键功能徽标：中键可在"旋转物体 / 平移物体"之间切换，
-         * 位置放在视口左上角，与右上角的 #gizFrame 互不冲突。 */
-        #modeBadge{
-            position: absolute;
-            left: 12px;
-            top: 12px;
-            padding: 3px 8px;
-            font-size: 12px;
-            font-weight: 700;
-            color: #2f6fdb;
-            background: rgba(255,255,255,0.86);
-            border: 1px solid rgba(47,111,219,0.35);
-            border-radius: 6px;
-            pointer-events: none;
-            white-space: nowrap;
-        }
-        #modeBadge.is-translate{
-            color: #1f8a4c;
-            border-color: rgba(31,138,76,0.35);
-        }
-        #modeBadge.is-free{
-            color: #b3541e;
-            border-color: rgba(179,84,30,0.4);
-        }
-
-        /* ------------------------------------------------------------------
-         * 右侧设置面板
-         * ------------------------------------------------------------------ */
-        #side-panel{
-            flex: 0 0 300px;
-            background: #fff;
-            border-left: 1px solid #d6dbe3;
-            overflow-y: auto;
-        }
-        .panel{ border-bottom: 1px solid #eef1f5; }
-        .panel.is-hidden{ display: none; }                 /* 动画面板仅在层次模型下显示 */
-        .file-input{ display: none; }
-        .panel-header{
-            padding: 7px 12px;
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            color: #2f6fdb;
-            background: #eef1f5;
-        }
-        .panel-content{
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            padding: 10px 12px 12px;
-        }
-
-        .setting-row{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            color: #333;
-        }
-        .setting-row > .setting-label{
-            flex: 0 0 62px;
-            color: #888;
-            white-space: nowrap;
-        }
-        .setting-row > .setting-value{
-            flex: 0 0 46px;
-            margin-left: auto;
-            text-align: right;
-            color: #888;
-            font-variant-numeric: tabular-nums;
-        }
-
-        /* 滑块：细轨道 + 小圆头 */
-        #side-panel input[type=range]{
-            -webkit-appearance: none;
-            appearance: none;
-            flex: 1 1 auto;
-            min-width: 0;
-            height: 2px;
-            background: #d0d5dd;
-            border-radius: 1px;
-            outline: none;
-            cursor: pointer;
-        }
-        #side-panel input[type=range]::-webkit-slider-thumb{
-            -webkit-appearance: none;
-            appearance: none;
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #2f6fdb;
-            cursor: pointer;
-        }
-        #side-panel input[type=range]::-moz-range-thumb{
-            width: 7px;
-            height: 7px;
-            border: none;
-            border-radius: 50%;
-            background: #2f6fdb;
-            cursor: pointer;
-        }
-
-        /* 数字输入框 */
-        #side-panel input[type=number]{
-            width: 52px;
-            padding: 3px 5px;
-            font-size: 12px;
-            font-family: inherit;
-            color: #333;
-            background: #f7f8fa;
-            border: 1px solid #b9c0ca;
-            border-radius: 4px;
-        }
-
-        /* 复选行 */
-        .check-row{
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            font-size: 12px;
-            color: #333;
-            cursor: pointer;
-        }
-
-        /* 快捷键表 */
-        .shortcut-row{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            color: #333;
-        }
-        .shortcut-row > .shortcut-desc{
-            color: #666;
-        }
-        .kbd{
-            display: inline-block;
-            min-width: 14px;
-            padding: 1px 5px;
-            font-family: Consolas, "Courier New", monospace;
-            font-size: 11px;
-            text-align: center;
-            color: #333;
-            background: #f7f8fa;
-            border: 1px solid #b9c0ca;
-            border-bottom-width: 2px;
-            border-radius: 4px;
-        }
-
-        /* ------------------------------------------------------------------
-         * 底部状态栏
-         * ------------------------------------------------------------------ */
-        #status-bar{
-            flex: 0 0 28px;
-            display: flex;
-            align-items: center;
-            gap: 18px;
-            padding: 0 14px;
-            font-size: 12px;
-            color: #888;
-            background: #fff;
-            border-top: 1px solid #d6dbe3;
-            white-space: nowrap;
-            overflow: hidden;
-        }
-        #status-bar b{
-            font-weight: 600;
-            color: #333;
-            font-variant-numeric: tabular-nums;
-        }
-    </style>
-
-    <script type="text/javascript" src="./Common/webgl-utils.js"></script>
-    <script type="text/javascript" src="./Common/initShaders2.js"></script>
-    <script type="text/javascript" src="./Common/MVnew.js"></script>
-    <script type="text/javascript" src="./teapot-data.js"></script>
-    <script type="text/javascript" src="./models-data.js"></script>
-    <script type="text/javascript" src="./3d-wandering.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HW2 · 三维场景建模与漫游 · 变换与相机</title>
+  <link rel="icon" href="data:image/x-icon;base64,">
+  <link rel="stylesheet" href="../../../ui-system/system.css">
+  <link rel="stylesheet" href="page.css">
 </head>
-
 <body>
-<div id="app">
-
-    <!-- ==================================================================
-         顶部工具栏：模型选择 / 视图预设 / 投影切换 / 复位
-         ================================================================== -->
-    <header id="toolbar">
-        <div class="app-title">
-            <svg viewBox="0 0 24 24"><path d="M12 3 L20 7.5 L20 16.5 L12 21 L4 16.5 L4 7.5 Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 7.5 L12 12 L20 7.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M12 12 L12 21" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
-            <span>3D 场景建模与漫游</span>
-        </div>
-
-        <div class="toolbar-group">
-            <span class="group-label">模型</span>
-            <div class="seg" id="segModel">
-                <button type="button" data-model="cube">方块</button>
-                <button type="button" data-model="sphere">球</button>
-                <button type="button" data-model="hat" class="active">墨西哥帽</button>
-                <button type="button" data-model="teapot">茶壶</button>
-                <button type="button" data-model="knot">环面纽结</button>
-                <button type="button" data-model="solar">太阳系</button>
-                <button type="button" data-model="gears">齿轮组</button>
-            </div>
-            <button type="button" id="btnImportObj" class="btn" title="导入 Wavefront OBJ 网格文件">
-                <svg viewBox="0 0 24 24"><path d="M4 20 V4 H14 L20 10 V20 Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M14 4 V10 H20" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
-                <span>导入 OBJ</span>
-            </button>
-            <input type="file" id="objFileInput" class="file-input" accept=".obj">
-        </div>
-
-        <div class="toolbar-group">
-            <span class="group-label">视图</span>
-            <div class="seg" id="segView">
-                <button type="button" data-view="front">前</button>
-                <button type="button" data-view="back">后</button>
-                <button type="button" data-view="left">左</button>
-                <button type="button" data-view="right">右</button>
-                <button type="button" data-view="top">上</button>
-                <button type="button" data-view="bottom">下</button>
-                <button type="button" data-view="iso" class="active">等轴</button>
-            </div>
-        </div>
-
-        <div class="toolbar-right">
-            <button type="button" id="btnProj" class="btn btn-primary">
-                <svg viewBox="0 0 24 24"><rect x="3" y="8" width="12" height="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 8 V3 H21 V13 H14" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
-                <span id="btnProjLabel">投影：正交</span>
-            </button>
-            <button type="button" id="btnReset" class="btn" title="复位（快捷键 R）">
-                <svg viewBox="0 0 24 24"><path d="M4 12 A8 8 0 1 1 8 19" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 6 L4 12 L10 12" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-                <span>复位</span>
-            </button>
-        </div>
+  <div class="ui-shell">
+    <header class="ui-topbar">
+      <div class="ui-brand">
+        <span class="ui-brand__name">三维漫游</span>
+        <span class="ui-brand__meta">HW2 · 建模 / MVP 变换 / 相机与跟踪球</span>
+      </div>
+      <span class="ui-topbar__rule"></span>
+      <div class="ui-hints">
+        <span class="ui-hint"><span class="ui-kbd">左键</span>旋转物体</span>
+        <span class="ui-hint"><span class="ui-kbd">中键</span>切换平移</span>
+        <span class="ui-hint"><span class="ui-kbd">右键</span>环视</span>
+        <span class="ui-hint"><span class="ui-kbd">滚轮</span>缩放</span>
+        <span class="ui-hint"><span class="ui-kbd">空格×2</span>自由视角</span>
+      </div>
+      <div class="ui-topbar__actions">
+        <button type="button" id="btnProj" title="切换正交 / 透视（P）"><span id="btnProjLabel">投影：正交</span></button>
+        <button type="button" id="btnReset" title="复位（R）">复位</button>
+        <button class="ui-icon-button" type="button" data-action="rack" title="收起或展开参数面板 P" aria-label="收起或展开参数面板">P</button>
+        <button class="ui-icon-button" type="button" data-action="focus" title="沉浸模式 F" aria-label="沉浸模式">F</button>
+      </div>
     </header>
 
-    <!-- ==================================================================
-         主体：WebGL 视口 + 右侧设置面板
-         ================================================================== -->
-    <div id="main">
-        <div id="viewport-container">
-            <canvas id="canvas">Oops ... your browser doesn't support the HTML5 canvas element</canvas>
+    <main class="ui-stage">
+      <div class="ui-viewport" id="viewport-container">
+        <canvas id="canvas" aria-label="三维视口：模型、三色轴与主次网格"></canvas>
 
-            <!-- 角落朝向 gizmo 取景框（与 WebGL scissor 小视口对齐）；
-                 X/Y/Z 标识放在框内，位置由 JS 每帧投影写入 -->
-            <div id="gizFrame">
-                <div class="giz-label" id="gizLabelX">X</div>
-                <div class="giz-label" id="gizLabelY">Y</div>
-                <div class="giz-label" id="gizLabelZ">Z</div>
-            </div>
-
-            <div id="modeBadge">左键：旋转物体（中键切换）</div>
+        <div id="gizFrame">
+          <div class="giz-label" id="gizLabelX">X</div>
+          <div class="giz-label" id="gizLabelY">Y</div>
+          <div class="giz-label" id="gizLabelZ">Z</div>
         </div>
 
-        <aside id="side-panel">
-            <!-- 相机 -->
-            <section class="panel">
-                <div class="panel-header">相机</div>
-                <div class="panel-content">
-                    <div class="setting-row">
-                        <span class="setting-label">方位角 θ</span>
-                        <input type="range" id="rngTheta" min="-180" max="180" step="1" value="45">
-                        <span class="setting-value" id="valTheta">45°</span>
-                    </div>
-                    <div class="setting-row">
-                        <span class="setting-label">仰角 φ</span>
-                        <input type="range" id="rngPhi" min="0" max="180" step="0.1" value="54.7">
-                        <span class="setting-value" id="valPhi">54.7°</span>
-                    </div>
-                    <div class="setting-row">
-                        <span class="setting-label">视野角 fov</span>
-                        <input type="range" id="rngFov" min="5" max="170" step="1" value="60">
-                        <span class="setting-value" id="valFov">60°</span>
-                    </div>
-                    <div class="setting-row">
-                        <span class="setting-label">相机距离</span>
-                        <input type="range" id="rngRadius" min="2" max="40" step="0.5" value="15.5">
-                        <span class="setting-value" id="valRadius">15.5</span>
-                    </div>
-                </div>
-            </section>
+        <div id="modeBadge">左键：旋转物体（中键切换）</div>
+      </div>
 
-            <!-- 物体变换 -->
-            <section class="panel">
-                <div class="panel-header">物体变换</div>
-                <div class="panel-content">
-                    <div class="setting-row">
-                        <span class="setting-label">缩放 S</span>
-                        <input type="range" id="rngScale" min="0.2" max="10" step="0.05" value="1">
-                        <span class="setting-value" id="valScale">1.00</span>
-                    </div>
-                    <div class="setting-row">
-                        <span class="setting-label">平移 T</span>
-                        <input type="number" id="numTx" step="0.1" value="0" title="X">
-                        <input type="number" id="numTy" step="0.1" value="0" title="Y">
-                        <input type="number" id="numTz" step="0.1" value="0" title="Z">
-                    </div>
-                    <div class="setting-row">
-                        <span class="setting-label">旋转 R</span>
-                        <span id="rotInfo" style="color:#888;">跟踪球累积（鼠标左键拖动）</span>
-                    </div>
-                </div>
-            </section>
+      <span class="ui-corner" data-corner="tl"></span>
+      <span class="ui-corner" data-corner="tr"></span>
+      <span class="ui-corner" data-corner="bl"></span>
+      <span class="ui-corner" data-corner="br"></span>
 
-            <!-- 动画（仅太阳系等层次模型显示） -->
-            <section class="panel is-hidden" id="animPanel">
-                <div class="panel-header">动画</div>
-                <div class="panel-content">
-                    <div class="setting-row">
-                        <label class="check-row" style="flex:1;"><input type="checkbox" id="chkAnim" checked>播放动画</label>
-                        <button type="button" id="btnAnimReset" class="btn">重置</button>
-                    </div>
-                    <div class="setting-row">
-                        <span class="setting-label">速度</span>
-                        <input type="range" id="rngSpeed" min="0" max="3" step="0.1" value="1">
-                        <span class="setting-value" id="valSpeed">1.0×</span>
-                    </div>
-                </div>
-            </section>
+      <div class="ui-viewport__stamp"><strong>三维场景建模与漫游</strong> · MVP 变换与相机</div>
+    </main>
 
-            <!-- 显示 -->
-            <section class="panel">
-                <div class="panel-header">显示</div>
-                <div class="panel-content">
-                    <label class="check-row"><input type="checkbox" id="chkAxes" checked>坐标轴</label>
-                    <label class="check-row"><input type="checkbox" id="chkLabels" checked>轴标签（gizmo 内）</label>
-                    <label class="check-row"><input type="checkbox" id="chkGizmo" checked>角落朝向 gizmo</label>
-                </div>
-            </section>
+    <aside class="ui-rack" data-ui="rack">
+      <div class="ui-rack__head">
+        <span class="ui-rack__title">参数面板</span>
+        <span class="ui-rack__meta">01—05</span>
+        <button class="ui-icon-button" type="button" data-action="rack" title="收起参数面板 P" aria-label="收起参数面板">P</button>
+      </div>
 
-            <!-- 操作说明 -->
-            <section class="panel">
-                <div class="panel-header">操作说明</div>
-                <div class="panel-content">
-                    <div class="shortcut-row"><span class="kbd">左键拖动</span><span class="shortcut-desc">旋转物体／平移模式下移动物体</span></div>
-                    <div class="shortcut-row"><span class="kbd">中键</span><span class="shortcut-desc">切换左键：旋转 ⇄ 平移</span></div>
-                    <div class="shortcut-row"><span class="kbd">右键拖动</span><span class="shortcut-desc">轨道：抓取旋转视图（拖回起点即复原）／自由视角：转头</span></div>
-                    <div class="shortcut-row"><span class="kbd">滚轮</span><span class="shortcut-desc">缩放物体</span></div>
-                    <div class="shortcut-row"><span class="kbd">Ctrl</span><span class="kbd">滚轮</span><span class="shortcut-desc">推拉相机距离／自由视角：调节飞行速度</span></div>
-                    <div class="shortcut-row"><span class="kbd">↑</span><span class="kbd">↓</span><span class="kbd">←</span><span class="kbd">→</span><span class="shortcut-desc">沿世界坐标轴平移物体</span></div>
-                    <div class="shortcut-row"><span class="kbd">Z</span><span class="kbd">C</span><span class="shortcut-desc">物体放大／缩小</span></div>
-                    <div class="shortcut-row"><span class="kbd">W</span><span class="kbd">S</span><span class="shortcut-desc">轨道：绕世界 X 轴旋转／自由视角：沿视线前后飞行</span></div>
-                    <div class="shortcut-row"><span class="kbd">A</span><span class="kbd">D</span><span class="shortcut-desc">轨道：绕世界 Y 轴旋转／自由视角：左右平移</span></div>
-                    <div class="shortcut-row"><span class="kbd">Q</span><span class="kbd">E</span><span class="shortcut-desc">轨道：绕世界 Z 轴旋转（可按住）</span></div>
-                    <div class="shortcut-row"><span class="kbd">Shift</span><span class="kbd">X</span><span class="shortcut-desc">自由视角：上升／下降（空格长按同效）</span></div>
-                    <div class="shortcut-row"><span class="kbd">空格</span><span class="shortcut-desc">双击切换自由视角／自由视角内按住 0.25 s 上升</span></div>
-                    <div class="shortcut-row"><span class="kbd">R</span><span class="shortcut-desc">复位（退出自由视角并回到默认视角）</span></div>
-                    <div class="shortcut-row"><span class="kbd">P</span><span class="shortcut-desc">切换正交／透视（自由视角固定透视，按钮置灰）</span></div>
-                    <div class="shortcut-row"><span class="kbd">M</span><span class="kbd">N</span><span class="shortcut-desc">调整视野角 fov</span></div>
+      <div class="ui-rack__body" data-ui="rack-body">
+        <!-- 01 模型 -->
+        <section class="ui-drawer" data-ui="drawer" data-group="model" data-open="true">
+          <button class="ui-drawer__head" type="button" aria-expanded="true">
+            <span class="ui-drawer__index">01</span>
+            <span class="ui-drawer__title">模型</span>
+            <span class="ui-drawer__meta" id="segModelMeta">墨西哥帽</span>
+          </button>
+          <div class="ui-drawer__body">
+            <div class="ui-drawer__body-inner">
+              <div class="ui-field" data-stacked="true">
+                <span class="ui-field__label">内置模型</span>
+                <span class="ui-field__value"></span>
+                <div class="ui-bank" id="segModel" role="radiogroup" aria-label="模型">
+                  <button type="button" data-model="cube">方块</button>
+                  <button type="button" data-model="sphere">球</button>
+                  <button type="button" data-model="hat">墨西哥帽</button>
+                  <button type="button" data-model="teapot">茶壶</button>
+                  <button type="button" data-model="knot">环面纽结</button>
+                  <button type="button" data-model="solar">太阳系</button>
+                  <button type="button" data-model="gears">齿轮组</button>
+                  <button type="button" id="btnImportObj" title="导入 Wavefront OBJ 网格">导入 OBJ</button>
                 </div>
-            </section>
-        </aside>
-    </div>
+              </div>
+              <input type="file" id="objFileInput" class="file-input" accept=".obj">
+              <p class="ui-note">七个内置模型覆盖曲面细分、层次结构与齿轮啮合；导入 OBJ 后作为新模型加入。</p>
+            </div>
+          </div>
+        </section>
 
-    <!-- ==================================================================
-         底部状态栏
-         ================================================================== -->
-    <footer id="status-bar">
-        <span>投影 <b id="stProjection">正交</b></span>
-        <span>视角 <b id="stCamMode">轨道</b></span>
-        <span id="stSpeedWrap" style="display:none">飞行速度 <b id="valFlySpeed">6.0</b></span>
-        <span>左键 <b id="stLeftMode">旋转</b></span>
-        <span>模型 <b id="stModel">墨西哥帽</b></span>
-        <span>平移 <b id="stTrans">(0.0, 0.0, 0.0)</b></span>
+        <!-- 02 相机 -->
+        <section class="ui-drawer" data-ui="drawer" data-group="camera" data-open="false">
+          <button class="ui-drawer__head" type="button" aria-expanded="false">
+            <span class="ui-drawer__index">02</span>
+            <span class="ui-drawer__title">相机</span>
+            <span class="ui-drawer__meta" id="stCamModeMeta">轨道</span>
+          </button>
+          <div class="ui-drawer__body">
+            <div class="ui-drawer__body-inner">
+              <div class="ui-field" data-stacked="true">
+                <span class="ui-field__label">视图预设</span>
+                <span class="ui-field__value"></span>
+                <div class="ui-bank" id="segView" role="radiogroup" aria-label="视图预设">
+                  <button type="button" data-view="front">前</button>
+                  <button type="button" data-view="back">后</button>
+                  <button type="button" data-view="left">左</button>
+                  <button type="button" data-view="right">右</button>
+                  <button type="button" data-view="top">上</button>
+                  <button type="button" data-view="bottom">下</button>
+                  <button type="button" data-view="iso">等轴</button>
+                </div>
+              </div>
+              <div class="ui-field">
+                <span class="ui-field__label">方位 θ</span>
+                <input class="ui-range" type="range" id="rngTheta" min="-180" max="180" step="1" value="45">
+                <span class="ui-field__value" id="valTheta">45°</span>
+              </div>
+              <div class="ui-field">
+                <span class="ui-field__label">仰角 φ</span>
+                <input class="ui-range" type="range" id="rngPhi" min="0" max="180" step="0.1" value="54.7">
+                <span class="ui-field__value" id="valPhi">54.7°</span>
+              </div>
+              <div class="ui-field">
+                <span class="ui-field__label">视野角</span>
+                <input class="ui-range" type="range" id="rngFov" min="5" max="170" step="1" value="60">
+                <span class="ui-field__value" id="valFov">60°</span>
+              </div>
+              <div class="ui-field">
+                <span class="ui-field__label">距离</span>
+                <input class="ui-range" type="range" id="rngRadius" min="2" max="40" step="0.5" value="15.5">
+                <span class="ui-field__value" id="valRadius">15.5</span>
+              </div>
+              <p class="ui-note">自由视角下 θ / φ / 距离置灰：数值由键鼠直接驱动。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 03 变换 -->
+        <section class="ui-drawer" data-ui="drawer" data-group="transform" data-open="false">
+          <button class="ui-drawer__head" type="button" aria-expanded="false">
+            <span class="ui-drawer__index">03</span>
+            <span class="ui-drawer__title">变换</span>
+            <span class="ui-drawer__meta" id="stTransMeta">(0.0, 0.0, 0.0)</span>
+          </button>
+          <div class="ui-drawer__body">
+            <div class="ui-drawer__body-inner">
+              <div class="ui-field">
+                <span class="ui-field__label">缩放 S</span>
+                <input class="ui-range" type="range" id="rngScale" min="0.2" max="10" step="0.05" value="1">
+                <span class="ui-field__value" id="valScale">1.00</span>
+              </div>
+              <div class="ui-field" data-stacked="true">
+                <span class="ui-field__label">平移 T</span>
+                <span class="ui-field__value"></span>
+                <div class="ui-trans">
+                  <input class="ui-number" type="number" id="numTx" step="0.1" value="0" aria-label="平移 X">
+                  <input class="ui-number" type="number" id="numTy" step="0.1" value="0" aria-label="平移 Y">
+                  <input class="ui-number" type="number" id="numTz" step="0.1" value="0" aria-label="平移 Z">
+                </div>
+              </div>
+              <span class="ui-readout" id="rotInfo">未旋转（鼠标左键拖动）</span>
+              <p class="ui-note">左键拖动累积跟踪球旋转；中键切换左键为平移，方向键同样平移物体。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 04 动画：只在太阳系 / 齿轮组出现 -->
+        <section class="ui-drawer is-hidden" id="animPanel" data-ui="drawer" data-group="anim" data-open="false">
+          <button class="ui-drawer__head" type="button" aria-expanded="false">
+            <span class="ui-drawer__index">04</span>
+            <span class="ui-drawer__title">动画</span>
+            <span class="ui-drawer__meta" id="valSpeedMeta">1.0×</span>
+          </button>
+          <div class="ui-drawer__body">
+            <div class="ui-drawer__body-inner">
+              <label class="ui-field ui-field--key">
+                <span class="ui-field__label">播放</span>
+                <span class="ui-switch"><input type="checkbox" id="chkAnim" checked aria-label="播放动画"></span>
+              </label>
+              <div class="ui-field">
+                <span class="ui-field__label">速度</span>
+                <input class="ui-range" type="range" id="rngSpeed" min="0" max="3" step="0.1" value="1">
+                <span class="ui-field__value" id="valSpeed">1.0×</span>
+              </div>
+              <div class="ui-field ui-field--key">
+                <span class="ui-field__label">相位</span>
+                <button class="ui-key" type="button" id="btnAnimReset">
+                  <span class="ui-key__led"></span>
+                  <span class="ui-key__label">重置</span>
+                </button>
+              </div>
+              <p class="ui-note">层次模型的公转与自转相位；切换模型时自动清零。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 05 显示 -->
+        <section class="ui-drawer" data-ui="drawer" data-group="display" data-open="false">
+          <button class="ui-drawer__head" type="button" aria-expanded="false">
+            <span class="ui-drawer__index">05</span>
+            <span class="ui-drawer__title">显示</span>
+            <span class="ui-drawer__meta">3 / 3 开</span>
+          </button>
+          <div class="ui-drawer__body">
+            <div class="ui-drawer__body-inner">
+              <label class="ui-field ui-field--key">
+                <span class="ui-field__label">坐标轴</span>
+                <span class="ui-switch"><input type="checkbox" id="chkAxes" checked aria-label="坐标轴"></span>
+              </label>
+              <label class="ui-field ui-field--key">
+                <span class="ui-field__label">轴标签</span>
+                <span class="ui-switch"><input type="checkbox" id="chkLabels" checked aria-label="轴标签"></span>
+              </label>
+              <label class="ui-field ui-field--key">
+                <span class="ui-field__label">角落 gizmo</span>
+                <span class="ui-switch"><input type="checkbox" id="chkGizmo" checked aria-label="角落 gizmo"></span>
+              </label>
+              <p class="ui-note">坐标轴与主次网格是同一条三色约定：X 红、Y 绿、Z 蓝，负半轴为虚线。</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </aside>
+
+    <nav class="ui-rail" data-ui="rail" aria-label="参数面板侧边栏">
+      <span class="ui-rail__label">参数</span>
+      <button type="button" data-rail="model" title="01 模型">01</button>
+      <button type="button" data-rail="camera" title="02 相机">02</button>
+      <button type="button" data-rail="transform" title="03 变换">03</button>
+      <button type="button" data-rail="anim" title="04 动画">04</button>
+      <button type="button" data-rail="display" title="05 显示">05</button>
+      <button type="button" data-action="rack" title="展开参数面板">+</button>
+    </nav>
+
+    <footer class="ui-ledge" data-ui="ledger">
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">投影</span>
+        <span class="ui-ledge__value" id="stProjection">正交</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">视角</span>
+        <span class="ui-ledge__value" id="stCamMode">轨道</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">左键</span>
+        <span class="ui-ledge__value" id="stLeftMode">旋转</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">模型</span>
+        <span class="ui-ledge__value" id="stModel">墨西哥帽</span>
+      </div>
+      <div class="ui-ledge__cell">
+        <span class="ui-ledge__label">平移</span>
+        <span class="ui-ledge__value" id="stTrans">(0.0, 0.0, 0.0)</span>
+      </div>
+      <div class="ui-ledge__cell" id="stSpeedWrap" style="display:none">
+        <span class="ui-ledge__label">速度</span>
+        <span class="ui-ledge__value" id="valFlySpeed">6.0</span>
+      </div>
     </footer>
+  </div>
 
-</div>
+  <div class="ui-echo" data-ui="echo" data-visible="false" role="status" aria-live="polite"></div>
+
+  <script src="./Common/webgl-utils.js"></script>
+  <script src="./Common/initShaders2.js"></script>
+  <script src="./Common/MVnew.js"></script>
+  <script src="./teapot-data.js"></script>
+  <script src="./models-data.js"></script>
+  <script src="./3d-wandering.js?v=20261123v"></script>
+  <script src="../../../ui-system/system.js"></script>
+  <script src="ui.js?v=20261123v"></script>
 </body>
 </html>

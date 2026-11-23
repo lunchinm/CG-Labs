@@ -386,54 +386,36 @@ function computeCentroid()
     return vec2(sumX / total, sumY / total);
 }
 
+
 /**
- * 更新滑动条轨道的颜色填充：拇指与中心之间用颜色标识方向和距离。
- * 拇指不在中心时，拇指与中心点之间的轨道段填充颜色：
- *   - 右滑（value > 0，顺时针）：蓝色填充
- *   - 左滑（value < 0，逆时针）：橙色填充
- *   - 中点（value = 0）：无填充，仅显示中心刻度线
- * 中心点始终有 1px 深色刻度线作为参考。
- *
- * @param {number} value 滑动条当前值（-360 ~ 360）
- * @param {HTMLElement} slider 滑动条 DOM 元素
+ * 让绘制缓冲跟上视口的 CSS 尺寸。
+ * 缓冲像素与 CSS 像素取 1:1（不乘 DPR），这样 pixelToNDC 里
+ * “clientX / canvas.width” 的换算才与鼠标位置严格对应。
  */
-function updateSliderFill(value, slider)
+function resizeToViewport()
 {
-    var min = -360, max = 360;
-    // 拇指在轨道上的百分比位置
-    var thumbPct = (value - min) / (max - min) * 100;
-    var centerPct = 50;                 // 中心（value=0）在 50% 处
-    var gray = '#d0d5dd';               // 未填充段的底色
-    var centerMark = '#666';            // 中心刻度线颜色
-    var fill;                           // 填充色
+    if (!canvas || !gl) return;
+    var box = canvas.parentElement;
+    var w = Math.max(1, Math.round(box.clientWidth));
+    var h = Math.max(1, Math.round(box.clientHeight));
+    if (canvas.width === w && canvas.height === h) return;
+    canvas.width = w;
+    canvas.height = h;
+    gl.viewport(0, 0, w, h);
+    aspect = w / h;
+    paintMeta();
+}
 
-    if (value > 0) {
-        fill = '#2f6fdb';               // 蓝色
-    } else if (value < 0) {
-        fill = '#2f6fdb';               // 蓝色
-    }
-
-    if (value > 0) {
-        // 中心(50%) → 拇指位置，蓝色填充
-        slider.style.background =
-            'linear-gradient(to right, ' + gray + ' 0%, ' + gray + ' 49.3%, ' +
-            centerMark + ' 49.3%, ' + centerMark + ' 50.7%, ' +
-            fill + ' 50.7%, ' + fill + ' ' + thumbPct + '%, ' +
-            gray + ' ' + thumbPct + '%)';
-    } else if (value < 0) {
-        // 拇指位置 → 中心(50%)，橙色填充
-        slider.style.background =
-            'linear-gradient(to right, ' + gray + ' 0%, ' + gray + ' ' + thumbPct + '%, ' +
-            fill + ' ' + thumbPct + '%, ' + fill + ' 49.3%, ' +
-            centerMark + ' 49.3%, ' + centerMark + ' 50.7%, ' +
-            gray + ' 50.7%)';
-    } else {
-        // 中点：仅显示刻度线
-        slider.style.background =
-            'linear-gradient(to right, ' + gray + ' 0%, ' + gray + ' 49.3%, ' +
-            centerMark + ' 49.3%, ' + centerMark + ' 50.7%, ' +
-            gray + ' 50.7%)';
-    }
+/**
+ * 视口右下角那行小字：画布尺寸与当前纵横比。
+ * 尺寸变化时写一次即可，不参与每帧渲染。
+ */
+function paintMeta()
+{
+    var cell = document.querySelector('[data-cell="scene-meta"]');
+    if (!cell || !canvas) return;
+    cell.textContent = '画布 ' + canvas.width + ' × ' + canvas.height
+        + ' · 纵横比 ' + aspect.toFixed(3);
 }
 
 
@@ -445,20 +427,26 @@ window.onload = function init()
     // ---- 加载 WebGL 上下文 -------------------------------------------------
     canvas = document.getElementById("gl-canvas");
     gl = canvas.getContext('webgl2');
-    if (!gl) alert("WebGL 2.0 isn't available");
+    if (!gl) {
+        var fallback = document.getElementById("scene-fallback");
+        if (fallback) fallback.hidden = false;
+        return;
+    }
 
     // ---- 加载并启用着色器程序 ----------------------------------------------
     program = initShaders(gl, "shaders/hw1.vert", "shaders/hw1.frag");
     gl.useProgram(program);
 
     // ---- 初始化画布与视口 ---------------------------------------------------
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    aspect = canvas.width / canvas.height;   // 纵横比随画布确定
+    // 画布铺满 stage 里的视口，尺寸由布局决定（不再是整个窗口）
+    resizeToViewport();
+    if (typeof window.ResizeObserver === "function") {
+        new window.ResizeObserver(resizeToViewport).observe(canvas.parentElement);
+    }
+    window.addEventListener("resize", resizeToViewport);
 
-    // ---- 设置背景色（灰色）--------------------------------------------------
-    gl.clearColor(0.5, 0.5, 0.5, 1.0);
+    // ---- 设置背景色（深色纸面，与界面底色一致）------------------------------
+    gl.clearColor(0.071, 0.078, 0.090, 1.0);
 
     // ---- 初始颜色：红色（此后每次点击移动时随机变化）------------------------
     colorRandom = vec4(1.0, 0.0, 0.0, 1.0);
@@ -496,11 +484,9 @@ window.onload = function init()
     locColor   = gl.getUniformLocation(program, "randomColor");
 
     // ---- 绑定工具栏按钮事件 -------------------------------------------------
-    setupUI();
-
-    // ---- 获取旋转中心标记元素 ------------------------------------------------
     pivotMarker = document.getElementById("pivotMarker");
     pivotHint   = document.getElementById("pivotHint");
+    setupUI();
 
     // ---- 绑定画布鼠标事件（完成原 TODO2 的交互）-----------------------------
     setupMouse();
@@ -513,118 +499,182 @@ window.onload = function init()
 
 
 /* ---------------------------------------------------------------------------
- * 四、UI 事件绑定（按钮 / 滑动条）
+ * 四、界面状态同步
+ *
+ * 面板、键盘、命令索引都只改 UI.store 里的一份状态；这里把状态翻译成
+ * 画布要用的变量。方向是单向的：store → 画布。画布内部的变化（画完一笔、
+ * 点击画布移动）不回写 store，避免两次触发同一段逻辑。
  * -------------------------------------------------------------------------*/
-function setupUI()
+var SHAPE_BUILDERS = {
+    rect: makeRectangle,
+    tri: makeTriangle,
+    circle: makeCircle,
+    star: makeStar
+};
+
+var currentShapeId = 'rect';   // 与 store.shape 对齐，用来判断是否真的换了形状
+var displayShapeId = 'rect';   // 账本上写的名字：手绘完成后是 sketch
+var frameMsAvg = 0;            // 帧时的移动平均（毫秒），只用于状态账本
+
+function setShape(id)
 {
-    // —— 四个预设形状按钮：切换形状（新形状出现在当前位置）——
-    // 切换时取消进行中的平移动画，避免旧目标位置造成困惑。
-    document.getElementById("btnRect").onclick = function () {
-        animating = false;
-        shape = makeRectangle();
-        uploadShape();
-    };
-    document.getElementById("btnTri").onclick = function () {
-        animating = false;
-        shape = makeTriangle();
-        uploadShape();
-    };
-    document.getElementById("btnCircle").onclick = function () {
-        animating = false;
-        shape = makeCircle();
-        uploadShape();
-    };
-    document.getElementById("btnStar").onclick = function () {
-        animating = false;
-        shape = makeStar();
-        uploadShape();
-    };
+    var build = SHAPE_BUILDERS[id];
+    if (!build) return;
+    animating = false;         // 换形状时取消进行中的平移
+    shape = build();
+    displayShapeId = id;
+    uploadShape();
+}
 
-    // —— 旋转速度滑动条：双向，中点=停止，左=逆时针，右=顺时针 ——
-    // 滑动条直接控制旋转，无需额外按钮开关
-    var slider = document.getElementById("rotSpeed");
-    var label  = document.getElementById("speedLabel");
-    slider.addEventListener("input", function () {
-        var v = parseInt(slider.value);
-        // 滑动条正值=顺时针。NDC y 轴向上，正角度=逆时针，
-        // 因此取负号使正值对应顺时针：rotSpeed = -v * π/180
-        rotSpeed = -v * Math.PI / 180.0;
-        // 更新标签文字
-        if (v === 0) {
-            label.textContent = "停止";
-        } else if (v > 0) {
-            label.textContent = "顺时针 " + v + "°/s";
-        } else {
-            label.textContent = "逆时针 " + (-v) + "°/s";
-        }
-        // 更新轨道颜色填充：拇指与中心之间用颜色标识方向和距离
-        updateSliderFill(v, slider);
-    });
-    // 初始化轨道颜色（中心刻度线）
-    updateSliderFill(0, slider);
+function enterDraw()
+{
+    drawMode = true;
+    drawing = false;
+    adjustingPivot = false;    // 默认按质心定中心
+    strokes = [];
+    currentStroke = null;
+    previewFlat = [];
+    previewSegs = [];
+    animating = false;
+}
 
-    // —— 手绘模式按钮：进入 / 完成绘制（多笔画手绘的显式结束方式）——
-    var btnDraw  = document.getElementById("btnDraw");
-    var btnClear = document.getElementById("btnClear");
-    var btnPivot = document.getElementById("btnPivot");
-    btnDraw.onclick = function () {
-        if (!drawMode) {
-            // ===== 进入手绘模式 =====
-            drawMode = true;
-            drawing  = false;
-            adjustingPivot = false;   // 重置：默认使用质心定位
-            strokes  = [];
-            currentStroke = null;
-            previewFlat = [];
-            previewSegs = [];
-            btnDraw.textContent = "完成绘制";
-            btnDraw.classList.add("active");
-            btnClear.classList.add("show");   // 手绘模式中显示"清空"
-            btnPivot.classList.add("show");   // 手绘模式中显示"调整旋转中心"
-            btnPivot.classList.remove("active"); // 初始未激活
-            animating = false;
-        } else {
-            // ===== 完成绘制 =====
-            // 若 adjustingPivot 仍为 true，finalizeSketch 会使用用户手动设置的中心；
-            // 否则使用默认质心。
-            var sk = finalizeSketch();
-            if (sk) {
-                shape = sk;
-                uploadShape();
-            }
-            drawMode = false;
-            drawing  = false;
-            adjustingPivot = false;   // 退出时重置
-            btnDraw.textContent = "手绘形状";
-            btnDraw.classList.remove("active");
-            btnClear.classList.remove("show");
-            btnPivot.classList.remove("show");
-            btnPivot.classList.remove("active");
-        }
-    };
+function finishDraw()
+{
+    // 用已经画好的笔画生成线框形状；一根都没画就保持原形状
+    var sk = finalizeSketch();
+    if (sk) {
+        shape = sk;
+        displayShapeId = 'sketch';
+        uploadShape();
+    }
+    drawMode = false;
+    drawing = false;
+    adjustingPivot = false;
+    paintShapeCell();
+}
 
-    // —— 清空按钮：丢弃全部笔画重新画 ——
-    btnClear.onclick = function () {
-        strokes = [];
-        currentStroke = null;
-        drawing = false;
-        previewFlat = [];
-        previewSegs = [];
-    };
+/**
+ * 把 store 的状态落到画布变量上。store 里的转速单位是 °/s，正值=顺时针；
+ * NDC 的 y 轴向上、正角逆时针，所以要取负号再换成弧度。
+ */
+function applyState(state)
+{
+    if (state.shape !== currentShapeId) {
+        currentShapeId = state.shape;
+        setShape(state.shape);
+    }
 
-    // —— 调整旋转中心按钮：切换"手动设置中心"模式 ——
-    // 激活后画布点击用于设置旋转中心位置（而非画笔画）；
-    // 再次点击切换回默认质心定位方式。
-    btnPivot.onclick = function () {
-        adjustingPivot = !adjustingPivot;
-        btnPivot.classList.toggle("active", adjustingPivot);
+    rotSpeed = -(Number(state.rotSpeed) || 0) * Math.PI / 180.0;
+
+    if (!!state.handdraw !== drawMode) {
+        if (state.handdraw) enterDraw();
+        else finishDraw();
+    }
+
+    if (!!state.pivotAdjust !== adjustingPivot) {
+        adjustingPivot = !!state.pivotAdjust;
         if (adjustingPivot) {
-            // 进入调整模式：把当前质心作为初始值，标记不会跳变
+            // 进入点选模式时先落在当前质心，标记不跳变
             var c = computeCentroid();
             if (c) { customPivotX = c[0]; customPivotY = c[1]; }
         }
-        // 退出调整模式时不需要做额外操作，渲染自动回到质心定位
+    }
+
+    paintShapeCell();
+}
+
+function paintShapeCell()
+{
+    var name = displayShapeId === 'sketch' ? '手绘' : (SHAPE_LABEL[displayShapeId] || displayShapeId);
+
+    var cell = document.querySelector('[data-cell="shape"]');
+    if (cell) cell.textContent = name;
+
+    // 顶栏那格说明“现在画的是什么”，手绘中额外标出状态
+    var mode = document.querySelector('[data-cell="mode"]');
+    if (mode) mode.textContent = drawMode ? '手绘 · ' + name : name;
+}
+
+/**
+ * 状态账本：笔画数、当前旋转中心、帧时。
+ * 每帧都写 DOM 太浪费，这里最多每 6 帧更新一次，且只有文字真的变了才写。
+ */
+function paintLedger(now, dt)
+{
+    frameMsAvg = frameMsAvg ? frameMsAvg * 0.9 + dt * 1000 * 0.1 : dt * 1000;
+    if (now - paintLedger.last < 100) return;
+    paintLedger.last = now;
+
+    var strokeCell = document.querySelector('[data-cell="strokes"]');
+    if (strokeCell) {
+        var count = strokes.length + (currentStroke ? 1 : 0);
+        var text = String(count);
+        if (strokeCell.textContent !== text) strokeCell.textContent = text;
+    }
+
+    var speedCell = document.querySelector('[data-cell="speed"]');
+    if (speedCell) {
+        var deg = Math.round(-rotSpeed * 180 / Math.PI);
+        var speedText = (deg > 0 ? '+' : '') + deg + ' °/s';
+        if (speedCell.textContent !== speedText) speedCell.textContent = speedText;
+    }
+
+    var pivotCell = document.querySelector('[data-cell="pivot"]');
+    if (pivotCell) {
+        var px = 0, py = 0, known = false;
+        if (drawMode) {
+            var c = adjustingPivot ? [customPivotX, customPivotY] : computeCentroid();
+            if (c) { px = c[0]; py = c[1]; known = true; }
+        } else {
+            px = centerX; py = centerY; known = true;
+        }
+        var pivotText = known
+            ? '(' + ndcToPixelX(px).toFixed(0) + ', ' + ndcToPixelY(py).toFixed(0) + ')'
+            : '—';
+        if (pivotCell.textContent !== pivotText) pivotCell.textContent = pivotText;
+    }
+
+    var frameCell = document.querySelector('[data-cell="frame"]');
+    if (frameCell) {
+        var frameText = frameMsAvg.toFixed(1) + ' ms';
+        if (frameCell.textContent !== frameText) frameCell.textContent = frameText;
+    }
+}
+paintLedger.last = 0;
+
+function ndcToPixelX(x) { return (x + 1.0) / 2.0 * canvas.width; }
+function ndcToPixelY(y) { return (1.0 - y) / 2.0 * canvas.height; }
+
+function setupUI()
+{
+    UI.store.subscribe(function (state) { applyState(state); });
+
+    // 给命令索引留的入口：命令只描述“要做什么”，具体动作在这里
+    window.HW1 = {
+        clearStrokes: function () {
+            strokes = [];
+            currentStroke = null;
+            drawing = false;
+            previewFlat = [];
+            previewSegs = [];
+        },
+        resetPivot: function () {
+            customPivotX = 0.0;
+            customPivotY = 0.0;
+        },
+        resetScene: function () {
+            centerX = 0.0;
+            centerY = 0.0;
+            angle = 0.0;
+            animating = false;
+            colorRandom = vec4(1.0, 0.0, 0.0, 1.0);
+            strokes = [];
+            currentStroke = null;
+            drawing = false;
+        }
     };
+
+    applyState(UI.store.get());
 }
 
 
@@ -689,15 +739,9 @@ function setupMouse()
         updatePreview();
     });
 
-    // —— 窗口尺寸变化：同步画布、视口与纵横比 ——
-    window.onresize = function () {
-        canvas.width  = window.innerWidth;
-        canvas.height = window.innerHeight;
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        aspect = canvas.width / canvas.height;
-        // 画布尺寸变化不影响形状局部坐标（等比空间与像素对应），
-        // 无需重新上传 VBO，下一帧会自动以新 aspect 渲染。
-    };
+    // —— 尺寸变化由 init 里的 ResizeObserver 负责（resizeToViewport）——
+    // 画布尺寸变化不影响形状局部坐标（等比空间与像素对应），
+    // 无需重新上传 VBO，下一帧会自动以新 aspect 渲染。
 }
 
 
@@ -743,7 +787,7 @@ function render(now)
     // 非零时按速度和方向累加角度
     angle += rotSpeed * dt;
 
-    // ---- 4. 清屏（用 init 中设置的灰色背景填充）-----------------------------
+    // ---- 4. 清屏（背景色在 init 里设为界面底色）------------------------------
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     // ---- 5. 传递 uniform（每帧统一更新，覆盖原 TODO3）-----------------------
@@ -797,29 +841,30 @@ function render(now)
             if (c) { cx = c[0]; cy = c[1]; hasPivot = true; }
         }
         if (hasPivot) {
-            // NDC → 像素
-            var px = (cx + 1.0) / 2.0 * canvas.width;
-            var py = (1.0 - cy) / 2.0 * canvas.height;
-            pivotMarker.style.left = px + "px";
-            pivotMarker.style.top  = py + "px";
-            pivotMarker.style.display = "block";
+            // NDC → 像素（标记与画布同一个视口坐标系）
+            pivotMarker.style.left = ndcToPixelX(cx) + "px";
+            pivotMarker.style.top  = ndcToPixelY(cy) + "px";
+            pivotMarker.hidden = false;
             // 正在画笔画时隐藏文字，松开后显示
             if (drawing) {
-                pivotHint.style.display = "none";
+                pivotHint.hidden = true;
             } else {
-                pivotHint.style.left = (px + 6) + "px";
-                pivotHint.style.top  = (py - 16) + "px";
-                pivotHint.style.display = "block";
+                pivotHint.style.left = (ndcToPixelX(cx) + 8) + "px";
+                pivotHint.style.top  = (ndcToPixelY(cy) - 18) + "px";
+                pivotHint.hidden = false;
             }
         } else {
-            pivotMarker.style.display = "none";
-            pivotHint.style.display = "none";
+            pivotMarker.hidden = true;
+            pivotHint.hidden = true;
         }
     } else if (pivotMarker) {
-        pivotMarker.style.display = "none";
-        pivotHint.style.display = "none";
+        pivotMarker.hidden = true;
+        pivotHint.hidden = true;
     }
 
-    // ---- 8. 请求下一帧，形成持续渲染循环 -------------------------------------
+    // ---- 8. 状态账本：笔画数 / 转速 / 中心 / 帧时（内部节流，不是每帧写 DOM）
+    paintLedger(now, dt);
+
+    // ---- 9. 请求下一帧，形成持续渲染循环 -------------------------------------
     requestAnimationFrame(render);
 }

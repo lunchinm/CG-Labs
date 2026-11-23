@@ -1,0 +1,327 @@
+/*
+ * page.css
+ * 只做页面级布局与原生控件的皮：画布铺满视口、角落 gizmo、视角徽标、
+ * 滑杆与开关换成 ui-system 的细线与旧金游标。
+ * 颜色、字体全部取 system.css 的 token，这里不新造色值。
+ */
+
+@layer page {
+  .ui-stage {
+    background: var(--ui-bg);
+  }
+
+  #canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  #canvas:active {
+    cursor: grabbing;
+  }
+
+  .ui-brand__name {
+    font-size: 14px;
+  }
+
+  /* 中文标签不跟随拉丁大写标签的宽字距 */
+  .ui-brand__name,
+  .ui-rack__title,
+  .ui-ledge__label,
+  .ui-viewport__stamp {
+    letter-spacing: 0.04em;
+  }
+
+  /* ------------------------------------------------------------ 角落 gizmo */
+
+  /* 与 drawGizmo() 的 scissor 区域严格对齐：右上角、96×96、留白 14px */
+  #gizFrame {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    box-sizing: border-box;
+    width: 96px;
+    height: 96px;
+    border: 1px solid var(--ui-line);
+    background: transparent;
+    pointer-events: none;
+  }
+
+  #gizFrame .giz-label {
+    position: absolute;
+    font-family: var(--ui-font-mono);
+    font-size: var(--ui-text-micro);
+    line-height: 1;
+    letter-spacing: 0.06em;
+    transform: translate(-50%, -50%);
+  }
+
+  #gizLabelX { color: var(--ui-accent); }
+  #gizLabelY { color: var(--ui-ok); }
+  #gizLabelZ { color: var(--ui-cool); }
+
+  /* --------------------------------------------------------- 左键模式徽标 */
+
+  #modeBadge {
+    position: absolute;
+    top: 36px;
+    left: var(--ui-pad-sm);
+    padding: 3px 8px;
+    border: 1px solid var(--ui-line);
+    background: var(--ui-bar);
+    color: var(--ui-muted);
+    font-family: var(--ui-font-label);
+    font-size: var(--ui-text-micro);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+  }
+
+  #modeBadge.is-translate {
+    border-color: var(--ui-line-strong);
+    color: var(--ui-ink);
+  }
+
+  #modeBadge.is-free {
+    border-color: var(--ui-accent);
+    color: var(--ui-accent);
+  }
+
+  /* --------------------------------------------------------- 面板里的控件 */
+
+  /* 档位：两行四列的方格，选中只加底部 1px 旧金 */
+  #segModel,
+  #segView {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-auto-flow: row;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border: 1px solid var(--ui-line);
+  }
+
+  #segModel button,
+  #segView button {
+    padding: 5px 2px;
+    border: 0;
+    border-left: 1px solid var(--ui-line);
+    border-top: 1px solid var(--ui-line);
+    background: transparent;
+    color: var(--ui-muted);
+    font-family: var(--ui-font-label);
+    font-size: var(--ui-text-micro);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+
+  #segModel button:nth-child(-n + 4),
+  #segView button:nth-child(-n + 4) {
+    border-top: 0;
+  }
+
+  #segModel button:nth-child(4n + 1),
+  #segView button:nth-child(4n + 1) {
+    border-left: 0;
+  }
+
+  #segModel button:hover,
+  #segView button:hover {
+    color: var(--ui-ink);
+    background: var(--ui-surface-2);
+  }
+
+  #segModel button.active,
+  #segView button.active {
+    color: var(--ui-ink);
+    box-shadow: inset 0 -1px 0 var(--ui-accent);
+  }
+
+  #segModel button:disabled,
+  #segView button:disabled {
+    color: var(--ui-faint);
+    cursor: default;
+  }
+
+  /* 原生滑杆：细线轨道 + 旧金游标，形态接近 .ui-gauge */
+  .ui-range {
+    width: 100%;
+    height: 26px;
+    margin: 0;
+    background: transparent;
+    appearance: none;
+    cursor: ew-resize;
+  }
+
+  .ui-range::-webkit-slider-runnable-track {
+    height: 1px;
+    background: var(--ui-line-strong);
+  }
+
+  .ui-range::-webkit-slider-thumb {
+    width: 3px;
+    height: 11px;
+    margin-top: -5px;
+    border: 0;
+    background: var(--ui-accent);
+    appearance: none;
+    transform: rotate(0deg);
+  }
+
+  .ui-range::-moz-range-track {
+    height: 1px;
+    background: var(--ui-line-strong);
+  }
+
+  .ui-range::-moz-range-thumb {
+    width: 3px;
+    height: 11px;
+    border: 0;
+    background: var(--ui-accent);
+  }
+
+  .ui-range:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+
+  /* 数字输入：只有一条底线，等宽字体 */
+  .ui-number {
+    width: 100%;
+    padding: 2px 0;
+    border: 0;
+    border-bottom: 1px solid var(--ui-line);
+    background: transparent;
+    color: var(--ui-ink);
+    font-family: var(--ui-font-mono);
+    font-size: var(--ui-text-caption);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .ui-number:focus {
+    border-bottom-color: var(--ui-accent);
+  }
+
+  .ui-number:focus-visible {
+    outline: 1px solid var(--ui-focus);
+    outline-offset: 2px;
+  }
+
+  /* 三格平移输入共用一行 */
+  .ui-trans {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 4px 0 6px;
+  }
+
+  /* 开关：方块指示点，勾选后变旧金 */
+  .ui-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    cursor: pointer;
+  }
+
+  .ui-switch input {
+    width: 9px;
+    height: 9px;
+    margin: 0;
+    border: 1px solid var(--ui-line-strong);
+    background: transparent;
+    appearance: none;
+    cursor: pointer;
+    transform: rotate(45deg);
+  }
+
+  .ui-switch input:checked {
+    border-color: var(--ui-accent);
+    background: var(--ui-accent);
+  }
+
+  /* 旋转读数这类只读字段 */
+  .ui-readout {
+    display: block;
+    padding: 4px 0 6px;
+    color: var(--ui-muted);
+    font-family: var(--ui-font-body);
+    font-size: var(--ui-text-micro);
+    line-height: 1.55;
+  }
+
+  /* 动画面板只在层次模型出现 */
+  #animPanel.is-hidden {
+    display: none;
+  }
+
+  /* 状态账本：六格（速度格只在自由视角出现）等分一行，读数不换行 */
+  .ui-ledge {
+    display: flex;
+  }
+
+  .ui-ledge__cell {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .ui-ledge__value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 抽屉头可点，指针提示与 system.css 生成的一致 */
+  .ui-drawer__head {
+    cursor: pointer;
+  }
+
+  .ui-drawer__head:disabled {
+    cursor: default;
+  }
+
+  /* 导入 OBJ 的隐藏文件框 */
+  .file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* 顶栏两个动作按钮：1px 描边，当前投影值用旧金 */
+  #btnProj,
+  #btnReset {
+    padding: 3px 8px;
+    border: 1px solid var(--ui-line-strong);
+    background: transparent;
+    color: var(--ui-ink);
+    font-family: var(--ui-font-label);
+    font-size: var(--ui-text-micro);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+  }
+
+  #btnProj {
+    border-color: var(--ui-accent);
+    color: var(--ui-accent);
+  }
+
+  #btnProj:hover,
+  #btnReset:hover {
+    background: var(--ui-surface-2);
+  }
+
+  #btnProj:disabled {
+    border-color: var(--ui-line);
+    color: var(--ui-faint);
+    cursor: default;
+  }
+}
