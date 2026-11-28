@@ -166,6 +166,12 @@ UI.registerCommand({
 // ---------------------------------------------------------------- 05 SCENE
 
 UI.registerCommand({
+  id: 'scene.detail', group: '05 场景', label: '背景来源 简易贴图 / 完整地形', keys: [],
+  run: function (s) { s.set('sceneDetail', s.get('sceneDetail') ? 0 : 1); },
+  detail: function (s) { return '背景 ' + (s.get('sceneDetail') ? '完整地形，水与云流动' : '简易贴图，静止'); }
+});
+
+UI.registerCommand({
   id: 'scene.reset', group: '05 场景', label: '重置场景参数', keys: ['Space'],
   run: function (s) { s.patch(SCENE_DEFAULTS); },
   detail: function () { return '场景已重置'; }

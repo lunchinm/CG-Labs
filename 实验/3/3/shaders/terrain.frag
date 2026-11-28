@@ -22,6 +22,9 @@ uniform float u_skyGlow;
 uniform float u_fogDensity;
 uniform float u_exposure;
 
+// 场景时钟（秒）：水与云的运动由它驱动。简易档不走这条路径，保持 0。
+uniform float u_time;
+
 // 与主 Pass 共用的特效开关：环境也要响应阴影、雾效与水面反射的关闭。
 uniform float u_enableShadow;
 uniform float u_enableFog;
@@ -179,7 +182,8 @@ float cloudDensity(vec3 p) {
 
     // 大尺度云区只依赖 xz，覆盖率乘在最后；为 0 时整块密度必为 0，
     // 提前退出可以省掉 warp / shape / detail 的三维噪声采样。
-    float cluster = fbm(p.xz * 0.0035 + 3.7);
+    // 云区随时间漂移：噪声坐标的偏移就是云团的位移，不增加采样次数。
+    float cluster = fbm(p.xz * 0.0035 + 3.7 + vec2(u_time * 0.013, u_time * 0.009));
     float field = smoothstep(0.48, 0.66, cluster);
     if (field <= 0.0) return 0.0;
 
@@ -189,8 +193,10 @@ float cloudDensity(vec3 p) {
     vec3 q = p * 0.012;
     float warp = fbm(q.xz * 0.85 + q.y * 0.45);
     vec3 wq = q + vec3(warp * 0.8, h * 0.6, warp * 0.8);
-    float shape = fbm3(wq + vec3(4.1, 0.0, 2.7));
-    float detail = vnoise3(wq * 3.3 + vec3(9.0, 3.0, 6.0));
+    // shape 在高度维加时间：噪声切片缓慢上移，云的形态随时间重组，
+    // 叠加云区漂移就是“边走边变形”，而不是一整块平移。
+    float shape = fbm3(wq + vec3(4.1, u_time * 0.04, 2.7));
+    float detail = vnoise3(wq * 3.3 + vec3(9.0, u_time * 0.10, 6.0));
     float erosion = vnoise3(wq * 8.0 + vec3(2.0, 7.0, 3.0));
 
     // 大尺度云区把云分成几团，团与团之间留出蓝天；小尺度噪声收紧边缘。
@@ -289,7 +295,7 @@ vec3 skyColor(vec3 dir) {
     // 按“高空平面投影”取样：原来直接拿 dir.xz 当 UV，天顶附近 dir.xz≈0，
     // 噪声退化成常数，水平镜面反射天顶时就是一整块纯蓝，被读成玻璃盖板。
     vec2 cirrusUv = dir.xz / max(dir.y, 0.55);
-    float cirrusNoise = fbm(cirrusUv * 3.2 + vec2(3.7, 1.9));
+    float cirrusNoise = fbm(cirrusUv * 3.2 + vec2(3.7, 1.9) + vec2(u_time * 0.010, u_time * 0.006));
     float cirrus = smoothstep(0.44, 0.66, cirrusNoise) * smoothstep(0.08, 0.60, h);
     color = mix(color, u_lightColor * 0.82 + u_fogColor * 0.18, cirrus * 0.28);
     return color;
@@ -300,9 +306,13 @@ vec3 waterColor(vec3 rayOrigin, vec3 rayDir, float distance, out vec3 waterNorma
     vec2 wp = p.xz;
 
     float e = 0.20;
-    float n0 = fbm(wp * 0.16);
-    float nx = fbm((wp + vec2(e, 0.0)) * 0.16);
-    float nz = fbm((wp + vec2(0.0, e)) * 0.16);
+    // 波浪随时间流动：大波（倒影的起伏）顺风向漂，涟漪（只入高光）反向漂，
+    // 两层错开方向才像水在动，而不是整张贴图平移。时间项是纯坐标偏移，
+    // 不增加采样次数。
+    vec2 drift = vec2(u_time * 0.040, u_time * 0.024);
+    float n0 = fbm(wp * 0.16 + drift);
+    float nx = fbm((wp + vec2(e, 0.0)) * 0.16 + drift);
+    float nz = fbm((wp + vec2(0.0, e)) * 0.16 + drift);
     // 法线扰动的倾斜幅度。环境立方体贴图修好后，湖面真的会映到地平线暖带：
     // 3.2 的斜率让反射方向在几度内翻来翻去，暖带与山影被搅成大色块；收到 1.4
     // 保留倒影层次，同时不会把水面打成一地油污。
@@ -310,7 +320,7 @@ vec3 waterColor(vec3 rayOrigin, vec3 rayDir, float distance, out vec3 waterNorma
 
     // 细碎涟漪只参与高光，不参与反射方向；否则掠射角下反射射线会在
     // 山脊/天空之间高频跳动，湖面出现成块噪点。
-    float fine = fbm(wp * 1.35 + vec2(6.2, 2.8));
+    float fine = fbm(wp * 1.35 + vec2(6.2, 2.8) - drift * 1.6);
     vec3 normal = normalize(broadNormal + vec3((fine - 0.5) * 0.16, 0.0, (fine - 0.5) * 0.16));
 
     vec3 reflectedDir = reflect(rayDir, broadNormal);
@@ -369,11 +379,19 @@ vec3 shadeLand(vec3 p, vec3 normal, float distance, out float shadowVisibility) 
     albedo = mix(sand, albedo, smoothstep(0.04, 0.50, height));
     albedo *= 0.76 + strata * 0.46;
 
+    // 雪线：高海拔缓坡积雪，噪声把边缘打散成碎雪带；陡壁挂不住雪。
+    // 放在层理调制之后，雪色不被 strata 压暗。山顶落在 12–15 m、远处被雾
+    // 吃掉六成，反照率必须足够高（0.9 级），雪带才能隔着暮霭透出白。
+    float snowNoise = fbm(p.xz * 0.30 + 2.2);
+    float snow = smoothstep(8.5, 12.5, height + snowNoise * 3.0) * smoothstep(0.52, 0.78, slope);
+    albedo = mix(albedo, vec3(0.86, 0.90, 0.98), clamp(snow, 0.0, 0.96));
+
     float diffuse = max(dot(normal, u_sunDir), 0.0);
     float shadow = diffuse > 0.001 ? terrainShadow(p, normal) : 0.3;
 
     // 大尺度云影：让山体出现成片的明暗块，而不是一条均匀的绿带。
-    float cloud = smoothstep(0.32, 0.70, fbm(p.xz * 0.017 + vec2(19.0, 7.0)));
+    // 与云区同速同向漂移——云走，影子跟着走。
+    float cloud = smoothstep(0.32, 0.70, fbm(p.xz * 0.017 + vec2(19.0, 7.0) + vec2(u_time * 0.013, u_time * 0.009)));
     shadow *= mix(0.58, 1.0, cloud);
     // 关闭阴影时地形恢复满照度，调试视图也同步变成无遮挡。
     shadow = mix(1.0, shadow, u_enableShadow);

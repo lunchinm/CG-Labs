@@ -12,7 +12,7 @@
 
 var canvas = null;
 var gl = null;
-var SHADER_VERSION = '?v=20261128a';
+var SHADER_VERSION = '?v=20261128h';
 
 var programs = {};
 var uniforms = {};
@@ -95,8 +95,9 @@ function initScene() {
   programs.terrain = createProgram('shaders/terrain.vert', 'shaders/terrain.frag');
   programs.composite = createProgram('shaders/terrain.vert', 'shaders/composite.frag');
   programs.lamp = createProgram('shaders/lamp.vert', 'shaders/lamp.frag');
+  programs.skybox = createProgram('shaders/skybox.vert', 'shaders/skybox.frag');
 
-  if (!programs.main || !programs.depth || !programs.terrain || !programs.composite || !programs.lamp) {
+  if (!programs.main || !programs.depth || !programs.terrain || !programs.composite || !programs.lamp || !programs.skybox) {
     showFailure('着色器加载或链接失败，请查看控制台中的编译日志。');
     return;
   }
@@ -107,6 +108,7 @@ function initScene() {
   buildBackgroundTarget();
   buildEnvironmentTarget();
   loadTextures();
+  loadSkybox();
 
   resizeCanvas();
   bindInput();
@@ -167,9 +169,14 @@ function cacheUniforms() {
     'u_eye', 'u_forward', 'u_right', 'u_up', 'u_tanHalfFov', 'u_aspect',
     'u_sunDir', 'u_lightColor', 'u_ambientColor', 'u_fogColor',
     'u_horizonColor', 'u_skyGlow', 'u_fogDensity', 'u_exposure',
-    'envSampler', 'u_useEnv', 'u_envMode',
+    'envSampler', 'u_useEnv', 'u_envMode', 'u_time',
     'u_pass', 'u_enableShadow', 'u_enableFog',
     'u_waterReflect', 'u_enableWaterReflect'
+  ]);
+
+  uniforms.skybox = cacheProgramUniforms(programs.skybox, [
+    'u_ModelMatrix', 'u_ViewMatrix', 'u_ProjectionMatrix',
+    'u_exposure', 'u_envMode', 'u_skybox'
   ]);
 
   uniforms.composite = cacheProgramUniforms(programs.composite, [
@@ -227,6 +234,8 @@ function buildGeometry() {
   vaos.terrain = createVAO(programs.terrain, buffers.screen, ['vPosition']);
   vaos.composite = createVAO(programs.composite, buffers.screen, ['vPosition']);
   vaos.lamp = createVAO(programs.lamp, buffers.unit, ['vPosition']);
+  // 天空盒复用单位立方体的顶点：方向取物体空间坐标，缩放由模型矩阵给。
+  vaos.skybox = createVAO(programs.skybox, buffers.unit, ['vPosition']);
 
   var skirtTop = SCENE.stoneTop - 0.012;
   var skirtHalf = (skirtTop - SCENE.stoneBottom) * 0.5;
@@ -493,7 +502,11 @@ function environmentSignature(lightPosition) {
     material.kd.toFixed(2),
     material.ks.toFixed(2),
     material.shininess.toFixed(1),
-    material.usePCF
+    material.usePCF,
+    // 山湖精度决定捕捉进去的山形与云，切换后必须重抓一次立方体贴图。
+    material.sceneDetail,
+    // 天空盒是异步加载的：六面到齐后要重抓一次，镜面里才不会留一张黑天空。
+    skybox.ready ? 1 : 0
   ].join('|');
 }
 
@@ -521,6 +534,7 @@ function renderEnvironment(lightPosition, lightSpace) {
   gl.uniform1f(u.u_skyGlow, material.skyGlow);
   gl.uniform1f(u.u_fogDensity, material.fogDensity);
   gl.uniform1f(u.u_exposure, material.exposure);
+  gl.uniform1f(u.u_time, sceneClock());
   gl.uniform1f(u.u_envMode, 1.0);
   gl.uniform1f(u.u_useEnv, 0.0);
   gl.uniform1i(u.u_pass, 0);
@@ -553,20 +567,27 @@ function renderEnvironment(lightPosition, lightSpace) {
     gl.depthMask(true);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // 1) 地形、水面与天空。
-    gl.useProgram(programs.terrain);
-    gl.disable(gl.DEPTH_TEST);
-    gl.depthMask(false);
-    gl.disable(gl.CULL_FACE);
-    gl.uniform3fv(u.u_forward, flatten(forward));
-    gl.uniform3fv(u.u_right, flatten(vec3(face.right[0], face.right[1], face.right[2])));
-    gl.uniform3fv(u.u_up, flatten(up));
-    // 必须每个面重新绑定地形 VAO：上一轮循环里的场景绘制会把 VAO 切到
-    // 地板/台座的顶点缓冲上。只在循环外绑一次，后五个面就是拿地板顶点去画
-    // 全屏四边形，画面停在清屏色——整张立方体贴图只剩一个平色，镜面因此
-    // 退化成一块“玻璃盖板”。
-    gl.bindVertexArray(vaos.terrain);
-    gl.drawArrays(gl.TRIANGLES, 0, buffers.screen.count);
+    // 1) 背景：完整档走地形 / 水面 / 天空步进，简易档贴一张天空盒。
+    if (material.sceneDetail > 0.5) {
+      gl.useProgram(programs.terrain);
+      gl.disable(gl.DEPTH_TEST);
+      gl.depthMask(false);
+      gl.disable(gl.CULL_FACE);
+      gl.uniform3fv(u.u_forward, flatten(forward));
+      gl.uniform3fv(u.u_right, flatten(vec3(face.right[0], face.right[1], face.right[2])));
+      gl.uniform3fv(u.u_up, flatten(up));
+      // 必须每个面重新绑定地形 VAO：上一轮循环里的场景绘制会把 VAO 切到
+      // 地板/台座的顶点缓冲上。只在循环外绑一次，后五个面就是拿地板顶点去画
+      // 全屏四边形，画面停在清屏色——整张立方体贴图只剩一个平色，镜面因此
+      // 退化成一块“玻璃盖板”。
+      gl.bindVertexArray(vaos.terrain);
+      gl.drawArrays(gl.TRIANGLES, 0, buffers.screen.count);
+    } else {
+      // 简易档：同一条捕捉路径，只是把背景换成天空盒，地面、台座与阴影
+      // 仍然照常画进来，方块映出的还是这个场景，而不是一张悬空的照片。
+      var faceView = lookAt(spot, center, up);
+      renderSkybox(faceView, sceneProjection, 1.0);
+    }
 
     // 2) 把真实场景再画一遍进立方体贴图：地板纹理、凹凸、光照、阴影、
     //    接触阴影与台座都由主程序实时计算，不再用程序化木板近似。
@@ -838,6 +859,14 @@ function computeLightSpace(lightPosition) {
 
 // ---------------------------------------------------------------- 渲染
 
+// 场景时钟：水与云的运动都从这里取时间。从脚本加载起算，
+// 避免长时间停留后大数值吃掉 float32 的精度。
+var bootAt = performance.now();
+
+function sceneClock() {
+  return (performance.now() - bootAt) * 0.001;
+}
+
 function requestRender() {
   if (renderQueued) return;
   renderQueued = true;
@@ -884,6 +913,14 @@ function render() {
   }
 
   renderMainPass(state, eye, view, projection, lightSpace, lightPosition);
+
+  // 天空盒的六张图在帧里补上传：没到位就继续要下一帧，到位或确认失败后停下。
+  if (material.sceneDetail < 0.5 && !skybox.ready && !skybox.failed) requestRender();
+
+  // 完整地形的水面波浪与云随时间流动，需要连续重绘；简易档是静止照片，
+  // 没有东西会动，保持按需渲染。软件渲染下连续重绘只会把整页拖成幻灯片，
+  // 同样保持按需渲染。
+  if (material.sceneDetail > 0.5 && !softwareRendering) requestRender();
 }
 
 function renderShadowPass(lightSpace) {
@@ -911,6 +948,127 @@ function renderShadowPass(lightSpace) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 
+// ---------------------------------------------------------------- 天空盒
+
+// 简易档的背景：模板里那套 6 面天空盒贴图（已缩到 1024²，六张共约 460 KB）。
+var skybox = {
+  texture: null,
+  ready: false,
+  loaded: 0,
+  faces: ['right', 'left', 'top', 'bottom', 'front', 'back']
+};
+
+var skyboxModel = null;
+
+// lookAt 返回的是行主序的 4×4，平移在第 4 列（m[0..2][3]）。天空盒只要旋转。
+function mat4NoTranslation(m) {
+  var out = mat4();
+  for (var i = 0; i < 3; i += 1) {
+    for (var j = 0; j < 3; j += 1) out[i][j] = m[i][j];
+  }
+  return out;
+}
+
+function loadSkybox() {
+  skyboxModel = mat4();
+  skyboxModel[0][0] = 60.0;
+  skyboxModel[1][1] = 60.0;
+  skyboxModel[2][2] = 60.0;
+
+  skybox.texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, skybox.texture);
+  // 只做背景，不参与 mipmap 采样；边缘夹紧，接缝处不出现反向重复。
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  // 六个面全部到位前不画：不完整的立方体贴图在 WebGL 里是“全黑 + 一次警告”，
+  // 会在首帧和第一次环境捕捉里留下黑天空，之后也不会自己补上。
+  // 图片对象必须挂在 skybox 上：只留闭包引用的话，加载途中被回收，
+  // onload 就再也不会触发，六个请求全部 200 却一张都没上传。
+  // 六个面全部到位前不画：不完整的立方体贴图在 WebGL 里是“全黑 + 一次警告”，
+  // 会在首帧和第一次环境捕捉里留下黑天空，之后也不会自己补上。
+  //
+  // 这里既不用 onload，也不用 image.decode()，更不用 setInterval：在这个页面上
+  // 三者都不落地——六个请求全部 200、图片对象 complete 且 naturalWidth 正常，
+  // 回调却一次都不进。改成在渲染帧里检查 complete 再上传（见 uploadSkyboxFaces），
+  // 主循环本来就是 rAF，帧一定会来。
+  skybox.images = skybox.faces.map(function (name) {
+    var image = new Image();
+    image.src = 'skybox/' + name + '.jpg';
+    return image;
+  });
+}
+
+// 只有六个面都上传完才允许采样；返回是否已就绪。
+function uploadSkyboxFaces() {
+  if (skybox.ready) return true;
+
+  var uploaded = 0;
+  var broken = 0;
+  skybox.images.forEach(function (image, index) {
+    if (image.uploaded) {
+      uploaded += 1;
+      return;
+    }
+    if (!image.complete) return;
+    if (image.naturalWidth === 0) {
+      // 加载失败：complete 为真但宽度是 0，不要为它一直要帧。
+      broken += 1;
+      return;
+    }
+
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, skybox.texture);
+    gl.texImage2D(
+      gl.TEXTURE_CUBE_MAP_POSITIVE_X + index, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image
+    );
+    image.uploaded = true;
+    uploaded += 1;
+  });
+
+  if (uploaded === 6) {
+    skybox.ready = true;
+    skybox.loaded = 6;
+  } else if (broken > 0 && skybox.images.every(function (image) { return image.complete; })) {
+    skybox.failed = true;
+  }
+  return skybox.ready;
+}
+
+function renderSkybox(viewMatrix, projectionMatrix, envMode) {
+  if (!uploadSkyboxFaces()) return false;
+
+  var u = uniforms.skybox;
+  gl.useProgram(programs.skybox);
+  gl.uniformMatrix4fv(u.u_ModelMatrix, false, flatten(skyboxModel));
+  // 天空盒跟着相机走：必须去掉视图矩阵的平移。否则立方体留在世界原点，
+  // 眼高 7 m 会把照片里的地平线压到视线下方，远山整条被木地板挡住，
+  // 天空只剩一片平色——看起来就像贴图没生效。
+  gl.uniformMatrix4fv(u.u_ViewMatrix, false, flatten(mat4NoTranslation(viewMatrix)));
+  gl.uniformMatrix4fv(u.u_ProjectionMatrix, false, flatten(projectionMatrix));
+  gl.uniform1f(u.u_exposure, material.exposure);
+  gl.uniform1f(u.u_envMode, envMode);
+  gl.uniform1i(u.u_skybox, 5);
+
+  gl.activeTexture(gl.TEXTURE5);
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, skybox.texture);
+
+  var cullWasOn = gl.isEnabled(gl.CULL_FACE);
+  gl.disable(gl.CULL_FACE);
+  gl.disable(gl.DEPTH_TEST);
+  gl.depthMask(false);
+
+  gl.bindVertexArray(vaos.skybox);
+  gl.drawArrays(gl.TRIANGLES, 0, buffers.unit.count);
+  gl.bindVertexArray(null);
+
+  if (cullWasOn) gl.enable(gl.CULL_FACE);
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthMask(true);
+  return true;
+}
+
 function renderMainPass(state, eye, view, projection, lightSpace, lightPosition) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, canvas.width, canvas.height);
@@ -921,11 +1079,15 @@ function renderMainPass(state, eye, view, projection, lightSpace, lightPosition)
   gl.enable(gl.DEPTH_TEST);
   gl.depthMask(true);
 
-  // 程序化地形背景：所有渲染视图都绘制，由 u_pass 输出对应效果。
-  renderBackground(state, eye, lightPosition);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.viewport(0, 0, canvas.width, canvas.height);
-  compositeBackground();
+  // 背景：简易档直接贴模板的天空盒，完整档走程序化地形与体积云。
+  if (material.sceneDetail > 0.5) {
+    renderBackground(state, eye, lightPosition);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    compositeBackground();
+  } else {
+    renderSkybox(view, projection, 0.0);
+  }
 
   gl.useProgram(programs.main);
   var u = uniforms.main;
@@ -1091,6 +1253,7 @@ function renderBackground(state, eye, lightPosition) {
   gl.uniform1f(u.u_skyGlow, material.skyGlow);
   gl.uniform1f(u.u_fogDensity, material.fogDensity);
   gl.uniform1f(u.u_exposure, material.exposure);
+  gl.uniform1f(u.u_time, sceneClock());
   gl.uniform1f(u.u_envMode, 0.0);
   gl.uniform1f(u.u_useEnv, 1.0);
   gl.uniform1i(u.u_pass, material.pass);

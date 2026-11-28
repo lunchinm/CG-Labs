@@ -27,6 +27,8 @@ var MATERIAL_DEFAULTS = {
   fogDensity: 0.035,
   skyGlow: 0.55,
   exposure: 1.05,
+  // 背景来源：0 简易贴图（模板的 6 面天空盒，默认），1 完整地形（程序化山湖）。
+  sceneDetail: 0,
   pass: 0,
   enableShadow: true,
   enablePCF: true,
@@ -81,6 +83,7 @@ var material = {
   horizonColor: MATERIAL_COLORS.horizon,
   skyGlow: MATERIAL_DEFAULTS.skyGlow,
   exposure: MATERIAL_DEFAULTS.exposure,
+  sceneDetail: MATERIAL_DEFAULTS.sceneDetail,
   pass: MATERIAL_DEFAULTS.pass,
   usePCF: 1.0,
   enableShadow: 1.0,
@@ -108,6 +111,7 @@ function syncMaterialFromState(state) {
   material.fogDensity = state.fogDensity;
   material.skyGlow = state.skyGlow;
   material.exposure = state.exposure;
+  material.sceneDetail = state.sceneDetail ? 1.0 : 0.0;
   material.pass = state.pass;
   material.usePCF = state.enablePCF ? 1.0 : 0.0;
   material.enableShadow = state.enableShadow ? 1.0 : 0.0;

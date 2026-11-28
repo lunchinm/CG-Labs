@@ -53,6 +53,11 @@
           { value: 4, label: '法线' },
           { value: 5, label: '透明度' }
         ] },
+        { type: 'bank', id: 'sceneDetail', label: '背景来源', command: 'scene.detail', options: [
+          { value: 0, label: '简易贴图' },
+          { value: 1, label: '完整地形' }
+        ] },
+        { type: 'note', text: '完整地形：水面波浪与体积云随时间流动，持续重绘；简易贴图：模板天空盒照片，静止，负载低。' },
         { type: 'note', text: '按对象分组：正方体 / 地板 / 周围环境。' },
         { type: 'fold', label: '正方体 · 反射与透明', rows: [
           { type: 'key', id: 'enableReflect', label: '环境反射', command: 'effects.reflect' },
