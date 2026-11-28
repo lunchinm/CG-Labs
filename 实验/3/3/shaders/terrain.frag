@@ -79,6 +79,12 @@ float fbm(vec2 p) {
 // 92 以后再加一层远山，三层叠出纵深，避免一堵均匀的绿墙。
 float terrainHeight(vec2 p) {
     float radius = length(p);
+    float detail = (fbm(p * 0.21 + 4.0) - 0.5) * 0.9;
+
+    // 半径 28 以内三层掩码全为 0，高度只剩细起伏；提前返回省掉 3 次 fbm。
+    // 中央平台与湖底占了画面下半部，这是步进里最常走到的分支。
+    if (radius <= 28.0) return -2.25 + detail;
+
     float shore = smoothstep(28.0, 44.0, radius);
     float ridge = smoothstep(44.0, 78.0, radius);
     float far = smoothstep(92.0, 138.0, radius);
@@ -92,7 +98,7 @@ float terrainHeight(vec2 p) {
     height += shore * (0.9 + base * 2.6 + ridgeFine * ridgeFine * 1.3);
     height += ridge * (0.4 + ridgeNoise * ridgeNoise * 5.0 + base * 2.4);
     height += far * (2.5 + ridgeNoise * 10.0 + base * 2.5);
-    height += (fbm(p * 0.21 + 4.0) - 0.5) * 0.9;
+    height += detail;
     return height;
 }
 
@@ -171,6 +177,12 @@ float cloudDensity(vec3 p) {
     float h = (p.y - CLOUD_BOTTOM) / (CLOUD_TOP - CLOUD_BOTTOM);
     if (h <= 0.0 || h >= 1.0) return 0.0;
 
+    // 大尺度云区只依赖 xz，覆盖率乘在最后；为 0 时整块密度必为 0，
+    // 提前退出可以省掉 warp / shape / detail 的三维噪声采样。
+    float cluster = fbm(p.xz * 0.0035 + 3.7);
+    float field = smoothstep(0.48, 0.66, cluster);
+    if (field <= 0.0) return 0.0;
+
     // 云底平、云顶蓬松：底部 10% 收拢，上半层散开。
     float profile = smoothstep(0.0, 0.10, h) * (1.0 - smoothstep(0.50, 1.0, h));
 
@@ -182,8 +194,6 @@ float cloudDensity(vec3 p) {
     float erosion = vnoise3(wq * 8.0 + vec3(2.0, 7.0, 3.0));
 
     // 大尺度云区把云分成几团，团与团之间留出蓝天；小尺度噪声收紧边缘。
-    float cluster = fbm(p.xz * 0.0035 + 3.7);
-    float field = smoothstep(0.48, 0.66, cluster);
     float mask = shape + (detail - 0.5) * 0.18 + (erosion - 0.5) * 0.07;
     float cover = smoothstep(0.56, 0.69, mask) * field;
     return cover * profile;
@@ -216,6 +226,10 @@ vec3 volumetricClouds(vec3 eye, vec3 dir, vec3 baseColor, float surfaceDistance)
     // 近处云团的裁剪距离。主视角永远俯视中央平台，正上方的天空不会出现在
     // 画面里，所以背景保留“只显示 140 m 以外”的干净天际线；捕捉环境立方体
     // 贴图时要放行近处云，否则镜面顶面反射的是一整块纯蓝，读起来像玻璃盖板。
+    float nearStart = (u_envMode > 0.5) ? 18.0 : 140.0;
+    // 整段步进都落在裁剪起点之内时，密度恒为 0、透射比保持 1，最后必然
+    // 直接返回底色；先判掉，省下 40 次采样（大部分俯视地形的射线走这里）。
+    if (t1 <= nearStart) return baseColor;
     float nearCut = (u_envMode > 0.5) ? smoothstep(18.0, 55.0, t) : smoothstep(140.0, 280.0, t);
 
     for (int i = 0; i < STEPS; i++) {

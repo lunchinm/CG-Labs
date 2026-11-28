@@ -2,7 +2,7 @@
 
 /* ==========================================================================
    V2 湖畔档案 / Lakeside Archive
-   纸白文字 + 旧金强调 + 衬线标题 + 页边注。只覆盖 token 与组件形态。
+   纸底墨字 + 旧金强调 + 衬线标题 + 页边注。只覆盖 token 与组件形态。
    ========================================================================== */
 
 @layer tokens {
@@ -12,20 +12,20 @@
     --ui-font-mono: "Iosevka", "LXGW WenKai", monospace;
     --ui-font-label: "LXGW WenKai", "Noto Serif SC", serif;
 
-    --ui-bg: #121417;
-    --ui-bar: #15171a;
-    --ui-surface: #191c20;
-    --ui-surface-2: #1f2327;
-    --ui-surface-3: #252a2e;
-    --ui-ink: #e7e2d8;
-    --ui-muted: #9c9a92;
-    --ui-faint: #67665f;
-    --ui-line: rgba(231, 226, 216, 0.16);
-    --ui-line-strong: rgba(231, 226, 216, 0.32);
-    --ui-accent: #c9a227;
-    --ui-accent-ink: #121417;
-    --ui-cool: #8c9a8e;
-    --ui-focus: #c9a227;
+    --ui-bg: #f1eee6;
+    --ui-bar: #f7f5ee;
+    --ui-surface: #faf8f2;
+    --ui-surface-2: #eeeae0;
+    --ui-surface-3: #e3ded1;
+    --ui-ink: #23211b;
+    --ui-muted: #615b4e;
+    --ui-faint: #726b5c;
+    --ui-line: rgba(35, 33, 27, 0.16);
+    --ui-line-strong: rgba(35, 33, 27, 0.34);
+    --ui-accent: #80610f;
+    --ui-accent-ink: #faf8f2;
+    --ui-cool: #4d6a5c;
+    --ui-focus: #80610f;
     --ui-bank-indicator-h: 1px;
 
     --ui-scene-sky: #3a4352;

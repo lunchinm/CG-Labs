@@ -16,7 +16,8 @@
 
     body {
       padding: 26px 0 56px;
-      background: #0b0d0f;
+      /* 图纸外的衬垫比纸面再深一档，图框才浮得起来 */
+      background: #e4dfd2;
     }
 
     .sheets {
@@ -44,7 +45,7 @@
       width: 1600px;
       min-height: 1200px;
       background: var(--ui-bg);
-      border: 1px solid rgba(231, 226, 216, 0.08);
+      border: 1px solid rgba(35, 33, 27, 0.10);
     }
 
     .sheet::before {
@@ -220,6 +221,20 @@
 
     .screen .ui-rack {
       overflow: hidden;
+    }
+
+    /* 插图里的场景仍是黄昏暗调；压在场景上的图注与裁切角标固定用纸白，
+     * 不能跟着浅色主题改成墨色，否则深色天空上的字会整块消失。 */
+    .screen .ui-viewport__stamp {
+      color: rgba(231, 226, 216, 0.72);
+    }
+
+    .screen .ui-viewport__stamp strong {
+      color: #e7e2d8;
+    }
+
+    .screen .ui-corner {
+      border-color: rgba(231, 226, 216, 0.4);
     }
 
     .dim {
@@ -1190,9 +1205,9 @@
                       .sc-rim { fill: none; stroke: rgba(255, 238, 210, .6); stroke-width: 1.4; }
                       .sc-lamp { fill: var(--ui-scene-light); stroke: rgba(255, 240, 215, .7); stroke-width: 1; }
                       .sc-note line { stroke: rgba(233, 227, 216, .55); stroke-width: 1; }
-                      .sc-note circle { fill: var(--ui-accent); }
-                      .sc-note text { fill: var(--ui-ink); font-family: var(--ui-font-mono); font-size: 11px; letter-spacing: .08em; }
-                      .sc-note .num { fill: var(--ui-accent); }
+                      .sc-note circle { fill: #d8b463; }
+                      .sc-note text { fill: #e7e2d8; font-family: var(--ui-font-mono); font-size: 11px; letter-spacing: .08em; }
+                      .sc-note .num { fill: #d8b463; }
                     </style>
 
                     <defs>
@@ -1477,7 +1492,7 @@
               <div><dt>场景</dt><dd>A 黄昏湖畔 / 3-4 视角</dd></div>
               <div><dt>布局</dt><dd>顶栏 + 右侧仪表架 + 底部账本</dd></div>
               <div><dt>字体</dt><dd>Spectral / IBM Plex / Noto SC，本地 OFL 子集</dd></div>
-              <div><dt>强调</dt><dd>旧金 #C9A227，只做选中、游标、焦点</dd></div>
+              <div><dt>强调</dt><dd>旧金 #80610F，只做选中、游标、焦点</dd></div>
               <div><dt>绘制</dt><dd>发丝线 1 px；仅顶栏 3 px 双线</dd></div>
               <div><dt>状态</dt><dd>展开 / 面板收起 / 沉浸</dd></div>
             </dl>
@@ -1485,12 +1500,12 @@
 
           <section class="aside-block">
             <h2><span>02</span>色板</h2>
-            <div class="swatch-row"><span class="swatch" style="--c:#121417"></span><b>BG</b><span>#121417</span></div>
-            <div class="swatch-row"><span class="swatch" style="--c:#191c20"></span><b>SURFACE</b><span>#191C20</span></div>
-            <div class="swatch-row"><span class="swatch" style="--c:#e7e2d8"></span><b>INK</b><span>#E7E2D8</span></div>
-            <div class="swatch-row"><span class="swatch" style="--c:#9c9a92"></span><b>MUTED</b><span>#9C9A92</span></div>
-            <div class="swatch-row"><span class="swatch" style="--c:#c9a227"></span><b>ACCENT</b><span>#C9A227</span></div>
-            <div class="swatch-row"><span class="swatch" style="--c:#8c9a8e"></span><b>COOL</b><span>#8C9A8E</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c:#f1eee6"></span><b>BG</b><span>#F1EEE6</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c:#faf8f2"></span><b>SURFACE</b><span>#FAF8F2</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c:#23211b"></span><b>INK</b><span>#23211B</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c:#615b4e"></span><b>MUTED</b><span>#615B4E</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c:#80610f"></span><b>ACCENT</b><span>#80610F</span></div>
+            <div class="swatch-row"><span class="swatch" style="--c:#4d6a5c"></span><b>COOL</b><span>#4D6A5C</span></div>
           </section>
 
           <section class="aside-block">

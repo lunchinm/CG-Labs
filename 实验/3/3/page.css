@@ -26,6 +26,18 @@
     background: var(--ui-bar);
   }
 
+  /* 画布里是黄昏场景本身，画面仍是暗调；浅色主题的墨色字不能直接压上去。
+   * 标题标注改成贴在画面上的纸底标签，底色与顶栏一致。 */
+  .ui-viewport__stamp {
+    padding: 2px 6px;
+    background: var(--ui-bar);
+  }
+
+  /* 裁切角标画在画布上，改用纸白描边，暗场景里才看得见 */
+  .ui-corner {
+    border-color: rgba(247, 245, 238, 0.55);
+  }
+
   /* 中文标签不再跟随拉丁大写标签的宽字距 */
   .ui-brand__name,
   .ui-rack__title,

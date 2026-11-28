@@ -97,29 +97,29 @@
 
 @layer tokens {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
 
     --ui-font-display: "Spectral", "Noto Serif SC", serif;
     --ui-font-body: "IBM Plex Sans", "LXGW WenKai", sans-serif;
     --ui-font-mono: "Iosevka", "LXGW WenKai", monospace;
     --ui-font-label: "LXGW WenKai", "Noto Serif SC", serif;
 
-    --ui-bg: #0b1016;
-    --ui-bar: #0e141b;
-    --ui-surface: #111820;
-    --ui-surface-2: #161f29;
-    --ui-surface-3: #1b2631;
-    --ui-ink: #e9e3d8;
-    --ui-muted: #93a0ad;
-    --ui-faint: #5f6b77;
-    --ui-line: rgba(233, 227, 216, 0.13);
-    --ui-line-strong: rgba(233, 227, 216, 0.26);
-    --ui-accent: #e8a45c;
-    --ui-accent-ink: #0b1016;
-    --ui-cool: #7fa6b8;
-    --ui-focus: #e8a45c;
-    --ui-danger: #d9534f;
-    --ui-ok: #8fbf9f;
+    --ui-bg: #f1eee6;
+    --ui-bar: #f7f5ee;
+    --ui-surface: #faf8f2;
+    --ui-surface-2: #eeeae0;
+    --ui-surface-3: #e3ded1;
+    --ui-ink: #23211b;
+    --ui-muted: #615b4e;
+    --ui-faint: #726b5c;
+    --ui-line: rgba(35, 33, 27, 0.16);
+    --ui-line-strong: rgba(35, 33, 27, 0.34);
+    --ui-accent: #80610f;
+    --ui-accent-ink: #faf8f2;
+    --ui-cool: #4d6a5c;
+    --ui-focus: #80610f;
+    --ui-danger: #a3342c;
+    --ui-ok: #2f6b46;
 
     --ui-radius: 2px;
     --ui-radius-key: 2px;
@@ -635,7 +635,7 @@
     font-size: var(--ui-text-micro);
     color: var(--ui-ink);
     pointer-events: none;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.65);
   }
 
   .ui-annot__index {
@@ -1132,7 +1132,7 @@
     justify-items: center;
     align-items: start;
     padding: 12vh 16px 16px;
-    background: rgba(0, 0, 0, 0.58);
+    background: rgba(35, 33, 27, 0.32);
   }
 
   .ui-command__panel,

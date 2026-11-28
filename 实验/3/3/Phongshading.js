@@ -12,7 +12,7 @@
 
 var canvas = null;
 var gl = null;
-var SHADER_VERSION = '?v=20261122w';
+var SHADER_VERSION = '?v=20261128a';
 
 var programs = {};
 var uniforms = {};
@@ -81,6 +81,14 @@ function initScene() {
   gl.depthFunc(gl.LEQUAL);
   gl.clearDepth(1.0);
   gl.clearColor(material.fogColor[0], material.fogColor[1], material.fogColor[2], 1.0);
+
+  // 软件渲染（SwiftShader / Basic Render Driver / llvmpipe）下 1024 的
+  // 六面捕捉本身就够慢，先把立方体贴图和环境贴图降一档再谈帧率。
+  softwareRendering = detectSoftwareRendering();
+  if (softwareRendering) {
+    renderScale = RENDER_SCALE_MIN;
+    environment.size = 512;
+  }
 
   programs.main = createProgram('shaders/box.vert', 'shaders/box.frag');
   programs.depth = createProgram('shaders/depth.vert', 'shaders/depth.frag');
@@ -396,6 +404,7 @@ function resizeBackgroundTarget() {
  * 立方体与湖面都采样这张贴图，镜面反射里才有山体、天空和地板。
  * 尺寸取 1024，按 LOD 0 满分辨率采样：镜面会把贴图放大两三倍，再降 mip
  * 山脊就糊了。只在光照或材质参数变化时重建，六面 raymarch 的开销不会摊到每帧。
+ * 检测到软件渲染时降到 512，那是唯一还把开销摊到每次改参数的地方。
  */
 var environment = {
   texture: null,
@@ -693,10 +702,67 @@ function loadTextures() {
 
 // ---------------------------------------------------------------- 尺寸与矩阵
 
+// 全屏 raymarch 每帧的采样量 = 像素数 × 步数，像素数是最省事的那一档：
+// 降分辨率只是变糊，降步数会让山脊和云一截一截地跳。所以帧率不够时先降像素。
+var renderScale = 1.0;
+var RENDER_SCALE_MIN = 0.55;
+var RENDER_SCALE_MAX = 1.0;
+var RENDER_SCALE_STEP = 0.1;
+var softwareRendering = false;
+var SOFTWARE_RENDERER = /swiftshader|basic render|llvmpipe|software|mesa offscreen/i;
+
+// 帧间隔采样只统计连续重绘（拖动、滚轮连发）；静止后的第一帧不代表开销。
+// 快帧阈值取 19ms 而不是 16.7ms：60Hz 屏的垂直同步间隔正好是 16.67ms，
+// 阈值卡在它下面会让分辨率降下去之后再也没机会升回来。
+var frameProbe = { last: 0, slow: 0, fast: 0 };
+var FRAME_GAP_IDLE = 120;
+var FRAME_GAP_SLOW = 26;
+var FRAME_GAP_FAST = 19;
+var FRAME_SLOW_LIMIT = 6;
+var FRAME_FAST_LIMIT = 45;
+
+function detectSoftwareRendering() {
+  var info = gl.getExtension('WEBGL_debug_renderer_info');
+  if (!info) return false;
+  var name = gl.getParameter(info.UNMASKED_RENDERER_WEBGL);
+  return typeof name === 'string' && SOFTWARE_RENDERER.test(name);
+}
+
+function governRenderScale() {
+  var now = performance.now();
+  var gap = frameProbe.last ? now - frameProbe.last : 0;
+  frameProbe.last = now;
+
+  if (gap > FRAME_GAP_IDLE || gap <= 0) {
+    frameProbe.slow = 0;
+    frameProbe.fast = 0;
+    return;
+  }
+
+  if (gap > FRAME_GAP_SLOW) {
+    frameProbe.slow += 1;
+    frameProbe.fast = 0;
+  } else if (gap < FRAME_GAP_FAST) {
+    frameProbe.fast += 1;
+    frameProbe.slow = 0;
+  } else {
+    frameProbe.slow = 0;
+    frameProbe.fast = 0;
+  }
+
+  if (frameProbe.slow >= FRAME_SLOW_LIMIT && renderScale > RENDER_SCALE_MIN) {
+    frameProbe.slow = 0;
+    renderScale = Math.max(RENDER_SCALE_MIN, renderScale - RENDER_SCALE_STEP);
+  } else if (frameProbe.fast >= FRAME_FAST_LIMIT && renderScale < RENDER_SCALE_MAX) {
+    frameProbe.fast = 0;
+    renderScale = Math.min(RENDER_SCALE_MAX, renderScale + RENDER_SCALE_STEP);
+  }
+}
+
 function resizeCanvas() {
   if (!gl || !canvas) return;
 
-  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var dpr = Math.min(window.devicePixelRatio || 1, 2) * renderScale;
   var rect = canvas.getBoundingClientRect();
   var width = Math.max(1, Math.round(rect.width * dpr));
   var height = Math.max(1, Math.round(rect.height * dpr));
@@ -784,6 +850,8 @@ function requestRender() {
 function render() {
   if (!sceneReady || !gl) return;
 
+  // 先按上一帧的实测间隔决定分辨率，resizeCanvas 随即把新尺寸写进画布。
+  governRenderScale();
   resizeCanvas();
 
   var state = currentState();

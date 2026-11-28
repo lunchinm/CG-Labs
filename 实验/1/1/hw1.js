@@ -445,11 +445,11 @@ window.onload = function init()
     }
     window.addEventListener("resize", resizeToViewport);
 
-    // ---- 设置背景色（深色纸面，与界面底色一致）------------------------------
-    gl.clearColor(0.071, 0.078, 0.090, 1.0);
+    // ---- 设置背景色（纸面底色，与界面 --ui-bg #f1eee6 一致）-----------------
+    gl.clearColor(0.945, 0.933, 0.902, 1.0);
 
     // ---- 初始颜色：红色（此后每次点击移动时随机变化）------------------------
-    colorRandom = vec4(1.0, 0.0, 0.0, 1.0);
+    colorRandom = vec4(0.72, 0.12, 0.10, 1.0);
 
     // ---- 默认形状：矩形，并生成顶点数据 ------------------------------------
     shape = makeRectangle();
@@ -667,7 +667,7 @@ function setupUI()
             centerY = 0.0;
             angle = 0.0;
             animating = false;
-            colorRandom = vec4(1.0, 0.0, 0.0, 1.0);
+            colorRandom = vec4(0.72, 0.12, 0.10, 1.0);
             strokes = [];
             currentStroke = null;
             drawing = false;
@@ -700,11 +700,11 @@ function setupMouse()
             // ===== 移动模式：点击处作为平移动画的目标 =====
             var target = pixelToNDC(event);       // 【TODO2】像素 → NDC
 
-            // 随机变色：映射到 [0.15,1] 区间，避免随机出过暗的颜色
-            // 在灰色背景上看不清楚
-            colorRandom = vec4(0.15 + 0.85 * Math.random(),
-                               0.15 + 0.85 * Math.random(),
-                               0.15 + 0.85 * Math.random(), 1.0);
+            // 随机变色：映射到 [0.10,0.72] 区间（深色）。纸面底色较亮，
+            // 取上半区间的亮色会糊在背景里，所以要压暗一档。
+            colorRandom = vec4(0.10 + 0.62 * Math.random(),
+                               0.10 + 0.62 * Math.random(),
+                               0.10 + 0.62 * Math.random(), 1.0);
 
             // 平移动画：起点 = 形状"当前位置"。
             // 若上一次动画还没播完，centerX/centerY 就是当前插值位置，

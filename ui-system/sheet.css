@@ -18,7 +18,8 @@
 
   body {
     padding: 26px 0 56px;
-    background: #0b0d0f;
+    /* 图纸外的衬垫比纸面再深一档，图框才浮得起来 */
+    background: #e4dfd2;
   }
 
   .sheets {
@@ -50,7 +51,7 @@
     max-width: calc(100vw - 24px);
     min-height: 1160px;
     background: var(--ui-bg);
-    border: 1px solid rgba(231, 226, 216, 0.08);
+    border: 1px solid rgba(35, 33, 27, 0.10);
   }
 
   .sheet::before {

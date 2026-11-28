@@ -152,8 +152,8 @@ window.onload = function() {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    // 画布底色取界面底色 --ui-bg (#121417)，与外壳连成一片
-    gl.clearColor(0.071, 0.078, 0.090, 1.0);
+    // 画布底色取界面底色 --ui-bg (#f1eee6)，与外壳连成一片
+    gl.clearColor(0.945, 0.933, 0.902, 1.0);
 
     //初始化交互界面上的相关参数
     initViewingParameters();
